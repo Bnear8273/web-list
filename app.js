@@ -6,7 +6,6 @@
   const LEGACY_FOOD_KEY = 'what-to-eat.dishes.v1';
   const MAX_NAME_LENGTH = 24;
   const MAX_LIST_NAME_LENGTH = 12;
-  const MAX_LISTS = 12;
   const DEFAULT_LIST_NAME = '我的清单';
   const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 
@@ -294,8 +293,7 @@
       const usedIds = new Set();
       const lists = rawLists
         .map((item) => normalizeList(item, usedIds))
-        .filter(Boolean)
-        .slice(0, MAX_LISTS);
+        .filter(Boolean);
 
       return { lists, activeListId };
     } catch (error) {
@@ -451,10 +449,7 @@
     elements.deleteListButton.title = state.lists.length <= 1
       ? '至少保留一个清单'
       : '删除当前清单';
-    elements.addListButton.disabled = state.lists.length >= MAX_LISTS;
-    elements.addListButton.title = state.lists.length >= MAX_LISTS
-      ? `最多可以创建 ${MAX_LISTS} 个清单`
-      : '新建清单';
+    elements.addListButton.title = '新建清单';
   }
 
   function renderTabs() {
@@ -1194,7 +1189,7 @@
       elements.listDialogTitle.textContent = isRename ? '重命名清单' : '新建清单';
       elements.listDialogDesc.textContent = isRename
         ? '换个名字，清单里的选项不会变化。'
-        : `每个清单的选项和随机抽选互不影响，最多可以创建 ${MAX_LISTS} 个清单。`;
+        : '每个清单的选项和随机抽选互不影响。';
       elements.listDialogSubmit.textContent = isRename ? '保存' : '创建清单';
       elements.listNameInput.value = isRename ? list.name : '';
     }
@@ -1291,11 +1286,6 @@
       } else {
         showToast('清单已重命名，但无法保存到本地存储。', 'error');
       }
-      return;
-    }
-
-    if (state.lists.length >= MAX_LISTS) {
-      showListDialogError(`最多只能创建 ${MAX_LISTS} 个清单。`);
       return;
     }
 
