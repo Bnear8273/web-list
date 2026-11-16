@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4efe4">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="今天吃什么：一个简单的本地菜单工具，添加常吃的菜，纠结时随机抽一道。">
+  <title>今天吃什么 · 我的小菜单</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <div class="page">
+    <header class="site-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40" fill="none">
+            <path d="M8 20h24c0 7.18-5.82 13-13 13S8 27.18 8 20Z" fill="currentColor"/>
+            <path d="M14 14.5c0-2.5 2-3.5 2-6M21 14.5c0-2.5 2-3.5 2-6M28 14.5c0-2.5 2-3.5 2-6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M20 33v4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-copy">
+          <span class="brand-title">今天吃什么</span>
+          <span class="brand-sub">MY LITTLE MENU</span>
+        </span>
+      </div>
+
+      <div class="save-indicator" id="saveIndicator" role="status" aria-live="polite">
+        <span class="save-dot" aria-hidden="true"></span>
+        <span id="saveText">已保存到本地</span>
+      </div>
+    </header>
+
+    <main class="app-grid" id="main">
+      <section class="picker-card" aria-labelledby="pageTitle">
+        <span class="picker-glow" aria-hidden="true"></span>
+        <span class="picker-spark picker-spark-one" aria-hidden="true">✦</span>
+        <span class="picker-spark picker-spark-two" aria-hidden="true">✧</span>
+
+        <div class="picker-top">
+          <p class="eyebrow eyebrow-light">DAILY PICK</p>
+          <time class="today-label" id="todayLabel"></time>
+        </div>
+
+        <div class="picker-intro">
+          <h1 id="pageTitle">不知道<br>吃什么？</h1>
+          <p>把常吃的菜放进菜单，<br class="desktop-break">纠结的时候，交给运气。</p>
+        </div>
+
+        <div class="result-stage" id="resultStage">
+          <span class="stage-orbit" aria-hidden="true"></span>
+          <span class="stage-dot" aria-hidden="true"></span>
+          <p class="stage-label" id="stageLabel">今日之选</p>
+          <div class="stage-name-wrap">
+            <p class="stage-placeholder" id="stagePlaceholder">点一下按钮<br>随机选一道</p>
+            <p class="stage-name" id="stageName" hidden></p>
+          </div>
+        </div>
+
+        <div class="picker-actions">
+          <button type="button" class="random-button" id="randomButton" disabled>
+            <svg class="shuffle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 7h2.2c4.8 0 6.6 10 11.6 10H20M20 17l-2.6-2.6M20 17l-2.6 2.6M4 17h2.2c1.3 0 2.5-.7 3.6-1.8M14 8.8C15 7.7 16.1 7 17.8 7H20M20 7l-2.6-2.6M20 7l-2.6 2.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span id="randomButtonText">帮我选一道</span>
+          </button>
+          <p class="random-hint" id="randomHint">先添加几道菜，再来抽选</p>
+        </div>
+
+        <p class="sr-only" id="selectionAnnouncement" aria-live="polite"></p>
+      </section>
+
+      <section class="menu-card" aria-labelledby="menuTitle">
+        <div class="menu-head">
+          <div>
+            <p class="eyebrow">MY MENU</p>
+            <h2 id="menuTitle">我的菜单</h2>
+          </div>
+          <span class="dish-count" id="dishCount">0 道菜</span>
+        </div>
+
+        <form class="add-form" id="addForm" novalidate>
+          <label class="sr-only" for="dishInput">添加菜名</label>
+          <input
+            id="dishInput"
+            name="dish"
+            type="text"
+            maxlength="24"
+            placeholder="添加一道菜，比如：番茄炒蛋"
+            autocomplete="off"
+            spellcheck="false"
+            required
+          >
+          <button type="submit" class="add-button">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            添加
+          </button>
+        </form>
+        <p class="form-message" id="formMessage" role="alert" hidden></p>
+
+        <div class="list-scroll" id="listScroll">
+          <ul class="dish-list" id="dishList" aria-label="菜单列表"></ul>
+          <div class="empty-state" id="emptyState">
+            <span class="empty-art" aria-hidden="true">
+              <svg viewBox="0 0 64 64" fill="none">
+                <path d="M12 30h40c0 11.6-8.95 21-20 21s-20-9.4-20-21Z" fill="currentColor" opacity=".12"/>
+                <path d="M12 30h40c0 11.6-8.95 21-20 21s-20-9.4-20-21Z" stroke="currentColor" stroke-width="2"/>
+                <path d="M22 20c0-4 3-5.2 3-9M32 20c0-4 3-5.2 3-9M42 20c0-4 3-5.2 3-9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <p class="empty-title">菜单还是空的</p>
+            <p class="empty-desc">把想吃的菜加进来，<br>下次纠结时就有答案了。</p>
+            <button type="button" class="sample-button" id="sampleButton">载入示例菜单</button>
+          </div>
+        </div>
+
+        <div class="menu-foot">
+          <span class="privacy-note">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M8.5 10V7.8a3.5 3.5 0 1 1 7 0V10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+            仅保存在此浏览器
+          </span>
+          <span id="menuSummary">共 0 道菜</span>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>今天吃什么 · 只属于你的小菜单</p>
+      <p>清除浏览器站点数据会删除菜单内容</p>
+    </footer>
+  </div>
+</body>
+</html>

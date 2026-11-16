@@ -1,0 +1,736 @@
+(() => {
+  'use strict';
+
+  const STORAGE_KEY = 'what-to-eat.dishes.v1';
+  const MAX_NAME_LENGTH = 24;
+  const SAMPLE_NAMES = ['番茄炒蛋', '青椒肉丝', '麻婆豆腐', '可乐鸡翅', '蒜蓉西兰花', '蛋炒饭'];
+  const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+
+  const ICONS = {
+    edit: `
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="m14.8 5.2 4 4M5 19l3.7-.8L19 7.9a1.4 1.4 0 0 0 0-2L18.1 5a1.4 1.4 0 0 0-2 0L5.8 15.3 5 19Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `,
+    delete: `
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M5.5 7.5h13M9.5 7.5V5.8c0-.7.5-1.3 1.2-1.3h2.6c.7 0 1.2.6 1.2 1.3v1.7M8 7.5l.7 10c0 .8.7 1.5 1.6 1.5h4.4c.9 0 1.6-.7 1.6-1.5l.7-10M10.2 11v4.4M13.8 11v4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `,
+    check: `
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="m5.5 12.5 4.2 4.2 8.8-9.4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `,
+    close: `
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="m7 7 10 10M17 7 7 17" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+      </svg>
+    `,
+  };
+
+  const $ = (selector) => document.querySelector(selector);
+
+  const elements = {
+    saveIndicator: $('#saveIndicator'),
+    saveText: $('#saveText'),
+    todayLabel: $('#todayLabel'),
+    randomButton: $('#randomButton'),
+    randomButtonText: $('#randomButtonText'),
+    randomHint: $('#randomHint'),
+    resultStage: $('#resultStage'),
+    stageLabel: $('#stageLabel'),
+    stagePlaceholder: $('#stagePlaceholder'),
+    stageName: $('#stageName'),
+    selectionAnnouncement: $('#selectionAnnouncement'),
+    dishCount: $('#dishCount'),
+    menuSummary: $('#menuSummary'),
+    addForm: $('#addForm'),
+    dishInput: $('#dishInput'),
+    formMessage: $('#formMessage'),
+    dishList: $('#dishList'),
+    listScroll: $('#listScroll'),
+    emptyState: $('#emptyState'),
+    sampleButton: $('#sampleButton'),
+  };
+
+  const state = {
+    dishes: [],
+    editingId: null,
+    deleteConfirmId: null,
+    lastPickedId: null,
+    rolling: false,
+    rollTimer: null,
+    storageAvailable: true,
+    loadMessage: '',
+  };
+
+  function createId() {
+    try {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();
+      }
+    } catch (error) {
+      // Use a simple fallback when crypto is unavailable.
+    }
+    return `dish-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
+  function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (character) => {
+      const entities = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      };
+      return entities[character];
+    });
+  }
+
+  function cleanName(value) {
+    return String(value ?? '').replace(/\s+/g, ' ').trim();
+  }
+
+  function nameKey(value) {
+    return cleanName(value).toLocaleLowerCase('zh-CN');
+  }
+
+  function randomIndex(length) {
+    if (length <= 0) {
+      return 0;
+    }
+    try {
+      const value = new Uint32Array(1);
+      window.crypto.getRandomValues(value);
+      return value[0] % length;
+    } catch (error) {
+      return Math.floor(Math.random() * length);
+    }
+  }
+
+  function normalizeDish(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return null;
+    }
+    const name = cleanName(raw.name).slice(0, MAX_NAME_LENGTH);
+    if (!name) {
+      return null;
+    }
+    return {
+      id: typeof raw.id === 'string' && raw.id ? raw.id : createId(),
+      name,
+      createdAt: Number.isFinite(Number(raw.createdAt)) ? Number(raw.createdAt) : Date.now(),
+    };
+  }
+
+  function loadDishes() {
+    let raw;
+    try {
+      raw = window.localStorage.getItem(STORAGE_KEY);
+    } catch (error) {
+      state.storageAvailable = false;
+      state.loadMessage = '浏览器禁用了本地存储，菜单改动将无法保存。';
+      return [];
+    }
+
+    if (raw === null) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, '[]');
+      } catch (error) {
+        state.storageAvailable = false;
+        state.loadMessage = '浏览器禁用了本地存储，菜单改动将无法保存。';
+      }
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        throw new Error('Invalid menu data');
+      }
+
+      const usedIds = new Set();
+      return parsed
+        .map(normalizeDish)
+        .filter(Boolean)
+        .map((dish) => {
+          if (usedIds.has(dish.id)) {
+            dish.id = createId();
+          }
+          usedIds.add(dish.id);
+          return dish;
+        });
+    } catch (error) {
+      state.loadMessage = '本地菜单读取失败，已从空菜单开始。';
+      return [];
+    }
+  }
+
+  function setSaveStatus(type, message) {
+    elements.saveIndicator.classList.toggle('is-error', type === 'error');
+    elements.saveText.textContent = message;
+  }
+
+  function showFormMessage(message) {
+    elements.formMessage.textContent = message;
+    elements.formMessage.hidden = !message;
+  }
+
+  function clearFormMessage() {
+    elements.formMessage.textContent = '';
+    elements.formMessage.hidden = true;
+  }
+
+  function markAddInputInvalid(message) {
+    elements.dishInput.setAttribute('aria-invalid', 'true');
+    elements.dishInput.focus();
+    showFormMessage(message);
+  }
+
+  function saveDishes() {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.dishes));
+      state.storageAvailable = true;
+      setSaveStatus('saved', '已保存到本地');
+      clearFormMessage();
+      return true;
+    } catch (error) {
+      state.storageAvailable = false;
+      setSaveStatus('error', '本地保存失败');
+      showFormMessage('改动暂时无法保存，请检查浏览器的存储设置。');
+      return false;
+    }
+  }
+
+  function updateDate() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    elements.todayLabel.dateTime = [
+      year,
+      String(month).padStart(2, '0'),
+      String(day).padStart(2, '0'),
+    ].join('-');
+    elements.todayLabel.textContent = `${month}月${day}日 · ${WEEKDAYS[now.getDay()]}`;
+  }
+
+  function setStageName(name) {
+    elements.stageName.textContent = name;
+    elements.stageName.classList.toggle('is-long', [...name].length > 8);
+  }
+
+  function getDish(id) {
+    return state.dishes.find((dish) => dish.id === id) || null;
+  }
+
+  function randomButtonHint() {
+    const count = state.dishes.length;
+    if (count === 0) {
+      return '先添加几道菜，再来抽选';
+    }
+    if (count === 1) {
+      return state.lastPickedId ? '菜单里只有这一道，就是它啦' : '菜单里只有这一道，抽到就是它';
+    }
+    return state.lastPickedId ? '不满意？再抽一次，不会连续重复' : `菜单里有 ${count} 道菜，交给运气决定`;
+  }
+
+  function updateRandomAvailability() {
+    const count = state.dishes.length;
+    elements.randomButton.disabled = count === 0 || state.rolling;
+    elements.randomButtonText.textContent = state.rolling
+      ? '正在挑选…'
+      : state.lastPickedId
+        ? '换一道'
+        : '帮我选一道';
+    if (!state.rolling) {
+      elements.randomHint.textContent = randomButtonHint();
+    }
+  }
+
+  function updateCounts() {
+    const count = state.dishes.length;
+    elements.dishCount.textContent = `${count} 道菜`;
+    elements.menuSummary.textContent = `共 ${count} 道菜`;
+    elements.emptyState.hidden = count > 0;
+    elements.dishList.hidden = count === 0;
+  }
+
+  function rowMarkup(dish, index) {
+    const isPicked = state.lastPickedId === dish.id;
+    const rowNumber = String(index + 1).padStart(2, '0');
+
+    if (state.editingId === dish.id) {
+      return `
+        <li class="dish-row is-editing" data-id="${escapeHTML(dish.id)}">
+          <span class="row-number" aria-hidden="true">${rowNumber}</span>
+          <form class="edit-form" data-edit-form data-id="${escapeHTML(dish.id)}" novalidate>
+            <label class="sr-only" for="edit-${escapeHTML(dish.id)}">修改「${escapeHTML(dish.name)}」的菜名</label>
+            <input
+              class="edit-input"
+              id="edit-${escapeHTML(dish.id)}"
+              type="text"
+              value="${escapeHTML(dish.name)}"
+              maxlength="${MAX_NAME_LENGTH}"
+              autocomplete="off"
+              spellcheck="false"
+              required
+            >
+            <span class="edit-actions">
+              <button type="submit" class="mini-action is-save" aria-label="保存修改" title="保存修改">${ICONS.check}</button>
+              <button type="button" class="mini-action is-cancel" data-action="cancel-edit" aria-label="取消修改" title="取消修改">${ICONS.close}</button>
+            </span>
+          </form>
+        </li>
+      `;
+    }
+
+    if (state.deleteConfirmId === dish.id) {
+      return `
+        <li class="dish-row is-confirming" data-id="${escapeHTML(dish.id)}">
+          <span class="row-number" aria-hidden="true">${rowNumber}</span>
+          <span class="confirm-copy">删除 <strong>「${escapeHTML(dish.name)}」</strong>？</span>
+          <span class="confirm-actions">
+            <button type="button" class="text-action is-danger" data-action="confirm-delete">删除</button>
+            <button type="button" class="text-action" data-action="cancel-delete">取消</button>
+          </span>
+        </li>
+      `;
+    }
+
+    return `
+      <li class="dish-row${isPicked ? ' is-picked' : ''}" data-id="${escapeHTML(dish.id)}">
+        <span class="row-number" aria-hidden="true">${rowNumber}</span>
+        <span class="dish-name">${escapeHTML(dish.name)}</span>
+        ${isPicked ? '<span class="picked-tag">已选</span>' : ''}
+        <span class="row-actions">
+          <button type="button" class="row-action" data-action="edit" aria-label="修改「${escapeHTML(dish.name)}」" title="修改">${ICONS.edit}</button>
+          <button type="button" class="row-action is-delete" data-action="delete" aria-label="删除「${escapeHTML(dish.name)}」" title="删除">${ICONS.delete}</button>
+        </span>
+      </li>
+    `;
+  }
+
+  function renderList({ manageFocus = true } = {}) {
+    updateCounts();
+    elements.dishList.innerHTML = state.dishes.map(rowMarkup).join('');
+
+    if (!manageFocus) {
+      return;
+    }
+
+    if (state.editingId) {
+      window.requestAnimationFrame(() => {
+        const input = elements.dishList.querySelector(`[data-id="${cssEscape(state.editingId)}"] .edit-input`);
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      });
+    } else if (state.deleteConfirmId) {
+      window.requestAnimationFrame(() => {
+        const button = elements.dishList.querySelector(`[data-id="${cssEscape(state.deleteConfirmId)}"] [data-action="confirm-delete"]`);
+        button?.focus();
+      });
+    }
+  }
+
+  function cssEscape(value) {
+    if (window.CSS && typeof window.CSS.escape === 'function') {
+      return window.CSS.escape(value);
+    }
+    return String(value).replace(/["\\]/g, '\\$&');
+  }
+
+  function render() {
+    renderList();
+    updateRandomAvailability();
+  }
+
+  function resetPicker() {
+    if (state.rollTimer) {
+      window.clearInterval(state.rollTimer);
+      state.rollTimer = null;
+    }
+    state.rolling = false;
+    state.lastPickedId = null;
+    elements.stagePlaceholder.hidden = false;
+    elements.stageName.hidden = true;
+    elements.stageName.textContent = '';
+    elements.stageName.classList.remove('is-long');
+    elements.stageLabel.textContent = '今日之选';
+    elements.resultStage.classList.remove('is-rolling', 'is-revealed');
+    elements.randomButton.classList.remove('is-picking');
+    elements.selectionAnnouncement.textContent = '';
+    updateRandomAvailability();
+  }
+
+  function syncPickedName() {
+    if (!state.lastPickedId) {
+      return;
+    }
+    const picked = getDish(state.lastPickedId);
+    if (!picked) {
+      resetPicker();
+      return;
+    }
+    setStageName(picked.name);
+  }
+
+  function chooseDish() {
+    const candidates = state.dishes.length > 1 && state.lastPickedId
+      ? state.dishes.filter((dish) => dish.id !== state.lastPickedId)
+      : state.dishes;
+    if (!candidates.length) {
+      return null;
+    }
+    return candidates[randomIndex(candidates.length)];
+  }
+
+  function finishRandomPick() {
+    if (state.rollTimer) {
+      window.clearInterval(state.rollTimer);
+      state.rollTimer = null;
+    }
+
+    if (!state.dishes.length) {
+      resetPicker();
+      renderList();
+      return;
+    }
+
+    const picked = chooseDish();
+    if (!picked) {
+      resetPicker();
+      renderList();
+      return;
+    }
+
+    state.rolling = false;
+    state.lastPickedId = picked.id;
+    elements.resultStage.classList.remove('is-rolling');
+    elements.resultStage.classList.add('is-revealed');
+    elements.stageLabel.textContent = '今天就吃';
+    setStageName(picked.name);
+    elements.randomButton.classList.remove('is-picking');
+    elements.selectionAnnouncement.textContent = `今天就吃${picked.name}`;
+    updateRandomAvailability();
+    renderList({ manageFocus: false });
+    scrollPickedRowIntoView(picked.id);
+  }
+
+  function scrollPickedRowIntoView(id) {
+    window.requestAnimationFrame(() => {
+      const row = [...elements.dishList.querySelectorAll('.dish-row')]
+        .find((item) => item.dataset.id === id);
+      if (!row) {
+        return;
+      }
+      const rowTop = row.offsetTop;
+      const rowBottom = rowTop + row.offsetHeight;
+      const visibleTop = elements.listScroll.scrollTop;
+      const visibleBottom = visibleTop + elements.listScroll.clientHeight;
+      if (rowTop < visibleTop || rowBottom > visibleBottom) {
+        elements.listScroll.scrollTo({
+          top: Math.max(0, rowTop - elements.listScroll.clientHeight / 2 + row.offsetHeight / 2),
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        });
+      }
+    });
+  }
+
+  function startRandomPick() {
+    if (state.rolling || state.dishes.length === 0) {
+      return;
+    }
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    state.rolling = true;
+    elements.resultStage.classList.remove('is-revealed');
+    elements.resultStage.classList.add('is-rolling');
+    elements.stagePlaceholder.hidden = true;
+    elements.stageName.hidden = false;
+    elements.stageLabel.textContent = '正在挑选';
+    elements.randomButton.classList.add('is-picking');
+    elements.randomButton.disabled = true;
+    elements.randomButtonText.textContent = '正在挑选…';
+    elements.randomHint.textContent = '让运气替你决定';
+    elements.selectionAnnouncement.textContent = '';
+
+    const showRollingDish = () => {
+      if (!state.dishes.length) {
+        return;
+      }
+      const dish = state.dishes[randomIndex(state.dishes.length)];
+      setStageName(dish.name);
+    };
+
+    if (reduceMotion) {
+      window.setTimeout(finishRandomPick, 0);
+      return;
+    }
+
+    showRollingDish();
+    state.rollTimer = window.setInterval(showRollingDish, 70);
+    window.setTimeout(finishRandomPick, 850);
+  }
+
+  function cancelRowStates() {
+    state.editingId = null;
+    state.deleteConfirmId = null;
+  }
+
+  function handleAddDish(event) {
+    event.preventDefault();
+    const name = cleanName(elements.dishInput.value);
+
+    if (!name) {
+      markAddInputInvalid('先写下一道菜名吧。');
+      return;
+    }
+
+    if ([...name].length > MAX_NAME_LENGTH) {
+      markAddInputInvalid(`菜名不能超过 ${MAX_NAME_LENGTH} 个字。`);
+      return;
+    }
+
+    if (state.dishes.some((dish) => nameKey(dish.name) === nameKey(name))) {
+      markAddInputInvalid(`「${name}」已经在菜单里啦。`);
+      return;
+    }
+
+    cancelRowStates();
+    state.dishes.push({
+      id: createId(),
+      name,
+      createdAt: Date.now(),
+    });
+    clearFormMessage();
+    elements.dishInput.removeAttribute('aria-invalid');
+    saveDishes();
+    render();
+    elements.dishInput.value = '';
+    elements.dishInput.focus();
+
+    window.requestAnimationFrame(() => {
+      elements.listScroll.scrollTop = elements.listScroll.scrollHeight;
+    });
+  }
+
+  function startEditing(id) {
+    if (!getDish(id)) {
+      return;
+    }
+    state.editingId = id;
+    state.deleteConfirmId = null;
+    clearFormMessage();
+    renderList();
+  }
+
+  function cancelEditing() {
+    const previousId = state.editingId;
+    state.editingId = null;
+    renderList({ manageFocus: false });
+    focusRowAction(previousId, 'edit');
+  }
+
+  function handleEditSubmit(event) {
+    const form = event.target.closest('[data-edit-form]');
+    if (!form) {
+      return;
+    }
+    event.preventDefault();
+
+    const id = form.dataset.id;
+    const dish = getDish(id);
+    const input = form.querySelector('.edit-input');
+    if (!dish || !input) {
+      return;
+    }
+
+    const name = cleanName(input.value);
+    if (!name) {
+      input.setCustomValidity('菜名不能为空。');
+      input.reportValidity();
+      input.focus();
+      return;
+    }
+    if ([...name].length > MAX_NAME_LENGTH) {
+      input.setCustomValidity(`菜名不能超过 ${MAX_NAME_LENGTH} 个字。`);
+      input.reportValidity();
+      input.focus();
+      return;
+    }
+    if (state.dishes.some((item) => item.id !== id && nameKey(item.name) === nameKey(name))) {
+      input.setCustomValidity('菜单里已经有同名的菜了。');
+      input.reportValidity();
+      input.focus();
+      return;
+    }
+
+    input.setCustomValidity('');
+    dish.name = name;
+    state.editingId = null;
+    saveDishes();
+    syncPickedName();
+    renderList({ manageFocus: false });
+    focusRowAction(id, 'edit');
+  }
+
+  function startDeleteConfirmation(id) {
+    if (!getDish(id)) {
+      return;
+    }
+    state.deleteConfirmId = id;
+    state.editingId = null;
+    clearFormMessage();
+    renderList();
+  }
+
+  function cancelDeleteConfirmation() {
+    const previousId = state.deleteConfirmId;
+    state.deleteConfirmId = null;
+    renderList({ manageFocus: false });
+    focusRowAction(previousId, 'delete');
+  }
+
+  function confirmDelete() {
+    const id = state.deleteConfirmId;
+    if (!id) {
+      return;
+    }
+    const removedDish = getDish(id);
+    state.dishes = state.dishes.filter((dish) => dish.id !== id);
+    state.deleteConfirmId = null;
+    state.editingId = null;
+
+    if (state.lastPickedId === id) {
+      resetPicker();
+    }
+
+    saveDishes();
+    render();
+    elements.dishInput.focus();
+    if (removedDish) {
+      elements.selectionAnnouncement.textContent = `已删除${removedDish.name}`;
+    }
+  }
+
+  function focusRowAction(id, action) {
+    if (!id) {
+      elements.dishInput?.focus();
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      const button = elements.dishList.querySelector(
+        `[data-id="${cssEscape(id)}"] [data-action="${action}"]`,
+      );
+      if (button) {
+        button.focus();
+      } else {
+        elements.dishInput.focus();
+      }
+    });
+  }
+
+  function handleListClick(event) {
+    const actionButton = event.target.closest('button[data-action]');
+    if (!actionButton) {
+      return;
+    }
+    const row = actionButton.closest('.dish-row');
+    if (!row) {
+      return;
+    }
+    const id = row.dataset.id;
+
+    switch (actionButton.dataset.action) {
+      case 'edit':
+        startEditing(id);
+        break;
+      case 'delete':
+        startDeleteConfirmation(id);
+        break;
+      case 'cancel-edit':
+        cancelEditing();
+        break;
+      case 'confirm-delete':
+        confirmDelete();
+        break;
+      case 'cancel-delete':
+        cancelDeleteConfirmation();
+        break;
+      default:
+        break;
+    }
+  }
+
+  function loadSampleMenu() {
+    if (state.dishes.length > 0) {
+      return;
+    }
+    const now = Date.now();
+    state.dishes = SAMPLE_NAMES.map((name, index) => ({
+      id: createId(),
+      name,
+      createdAt: now + index,
+    }));
+    cancelRowStates();
+    resetPicker();
+    saveDishes();
+    render();
+    elements.dishInput.focus();
+  }
+
+  function bindEvents() {
+    elements.addForm.addEventListener('submit', handleAddDish);
+    elements.dishInput.addEventListener('input', () => {
+      elements.dishInput.removeAttribute('aria-invalid');
+      clearFormMessage();
+    });
+
+    elements.dishList.addEventListener('click', handleListClick);
+    elements.dishList.addEventListener('submit', handleEditSubmit);
+    elements.dishList.addEventListener('input', (event) => {
+      if (event.target.matches('.edit-input')) {
+        event.target.setCustomValidity('');
+      }
+    });
+
+    elements.randomButton.addEventListener('click', startRandomPick);
+    elements.sampleButton.addEventListener('click', loadSampleMenu);
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') {
+        return;
+      }
+      if (state.editingId) {
+        cancelEditing();
+      } else if (state.deleteConfirmId) {
+        cancelDeleteConfirmation();
+      }
+    });
+  }
+
+  function init() {
+    updateDate();
+    state.dishes = loadDishes();
+    bindEvents();
+    resetPicker();
+    render();
+    updateRandomAvailability();
+
+    if (state.loadMessage) {
+      setSaveStatus('error', '本地数据读取异常');
+      showFormMessage(state.loadMessage);
+    } else if (state.storageAvailable) {
+      setSaveStatus('saved', '已保存到本地');
+    } else {
+      setSaveStatus('error', '本地存储不可用');
+    }
+  }
+
+  init();
+})();
