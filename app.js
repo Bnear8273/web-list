@@ -1,9 +1,13 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'random-picker.items.v1';
-  const LEGACY_STORAGE_KEY = 'what-to-eat.dishes.v1';
+  const STORAGE_KEY = 'random-picker.lists.v1';
+  const LEGACY_STORAGE_KEY = 'random-picker.items.v1';
+  const LEGACY_FOOD_KEY = 'what-to-eat.dishes.v1';
   const MAX_NAME_LENGTH = 24;
+  const MAX_LIST_NAME_LENGTH = 12;
+  const MAX_LISTS = 12;
+  const DEFAULT_LIST_NAME = '我的清单';
   const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 
   const ICONS = {
@@ -35,6 +39,7 @@
     saveIndicator: $('#saveIndicator'),
     saveText: $('#saveText'),
     todayLabel: $('#todayLabel'),
+    pickerListName: $('#pickerListName'),
     randomButton: $('#randomButton'),
     randomButtonText: $('#randomButtonText'),
     randomHint: $('#randomHint'),
@@ -44,6 +49,11 @@
     stageName: $('#stageName'),
     selectionAnnouncement: $('#selectionAnnouncement'),
     dishCount: $('#dishCount'),
+    listTabs: $('#listTabs'),
+    addListButton: $('#addListButton'),
+    activeListName: $('#activeListName'),
+    renameListButton: $('#renameListButton'),
+    deleteListButton: $('#deleteListButton'),
     addForm: $('#addForm'),
     dishInput: $('#dishInput'),
     formMessage: $('#formMessage'),
@@ -59,20 +69,32 @@
     pasteCancel: $('#pasteCancel'),
     pasteReplace: $('#pasteReplace'),
     pasteAppend: $('#pasteAppend'),
+    listDialog: $('#listDialog'),
+    listDialogKicker: $('#listDialogKicker'),
+    listDialogTitle: $('#listDialogTitle'),
+    listDialogDesc: $('#listDialogDesc'),
+    listDialogForm: $('#listDialogForm'),
+    listNameField: $('#listNameField'),
+    listNameInput: $('#listNameInput'),
+    listDialogMessage: $('#listDialogMessage'),
+    listDialogCancel: $('#listDialogCancel'),
+    listDialogSubmit: $('#listDialogSubmit'),
     toastRegion: $('#toastRegion'),
   };
 
   const state = {
-    dishes: [],
+    lists: [],
+    activeListId: null,
     editingId: null,
     deleteConfirmId: null,
-    lastPickedId: null,
     rolling: false,
     rollTimer: null,
     pickToken: 0,
     storageAvailable: true,
     loadMessage: '',
     pendingPaste: null,
+    listDialogMode: null,
+    listDialogListId: null,
   };
 
   function createId() {
@@ -83,7 +105,7 @@
     } catch (error) {
       // Use a simple fallback when crypto is unavailable.
     }
-    return `dish-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+    return `item-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
   }
 
   function escapeHTML(value) {
@@ -120,6 +142,33 @@
     }
   }
 
+  function createList(name, dishes = []) {
+    return {
+      id: createId(),
+      name,
+      createdAt: Date.now(),
+      dishes,
+      lastPickedId: null,
+    };
+  }
+
+  function activeList() {
+    return state.lists.find((list) => list.id === state.activeListId) || state.lists[0] || null;
+  }
+
+  function activeDishes() {
+    const list = activeList();
+    return list ? list.dishes : [];
+  }
+
+  function getList(id) {
+    return state.lists.find((list) => list.id === id) || null;
+  }
+
+  function getDish(id) {
+    return activeDishes().find((dish) => dish.id === id) || null;
+  }
+
   function normalizeDish(raw) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
       return null;
@@ -135,53 +184,101 @@
     };
   }
 
-  function loadDishes() {
-    let raw;
+  function normalizeDishes(rawDishes) {
+    if (!Array.isArray(rawDishes)) {
+      return [];
+    }
+    const usedIds = new Set();
+    return rawDishes
+      .map(normalizeDish)
+      .filter(Boolean)
+      .map((dish) => {
+        if (usedIds.has(dish.id)) {
+          dish.id = createId();
+        }
+        usedIds.add(dish.id);
+        return dish;
+      });
+  }
+
+  function normalizeList(raw, usedIds) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return null;
+    }
+    const name = cleanName(raw.name).slice(0, MAX_LIST_NAME_LENGTH) || DEFAULT_LIST_NAME;
+    let id = typeof raw.id === 'string' && raw.id ? raw.id : createId();
+    if (usedIds.has(id)) {
+      id = createId();
+    }
+    usedIds.add(id);
+    return {
+      id,
+      name,
+      createdAt: Number.isFinite(Number(raw.createdAt)) ? Number(raw.createdAt) : Date.now(),
+      dishes: normalizeDishes(raw.dishes),
+      lastPickedId: null,
+    };
+  }
+
+  function parseLegacyDishes(raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function loadData() {
+    let raw = null;
     try {
       raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw === null) {
-        const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        const legacyItems = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        const legacyFood = legacyItems === null
+          ? window.localStorage.getItem(LEGACY_FOOD_KEY)
+          : null;
+        const legacyRaw = legacyItems ?? legacyFood;
         if (legacyRaw !== null) {
-          raw = legacyRaw;
-          window.localStorage.setItem(STORAGE_KEY, legacyRaw);
+          return {
+            lists: [createList(DEFAULT_LIST_NAME, normalizeDishes(parseLegacyDishes(legacyRaw)))],
+            activeListId: null,
+          };
         }
+        return { lists: [], activeListId: null };
       }
     } catch (error) {
       state.storageAvailable = false;
       state.loadMessage = '浏览器禁用了本地存储，清单改动将无法保存。';
-      return [];
-    }
-
-    if (raw === null) {
-      try {
-        window.localStorage.setItem(STORAGE_KEY, '[]');
-      } catch (error) {
-        state.storageAvailable = false;
-        state.loadMessage = '浏览器禁用了本地存储，清单改动将无法保存。';
-      }
-      return [];
+      return { lists: [], activeListId: null };
     }
 
     try {
       const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) {
+      let rawLists = null;
+      let activeListId = null;
+
+      if (Array.isArray(parsed)) {
+        rawLists = [{ name: DEFAULT_LIST_NAME, dishes: parsed }];
+      } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.lists)) {
+        rawLists = parsed.lists;
+        activeListId = typeof parsed.activeListId === 'string' ? parsed.activeListId : null;
+      }
+
+      if (!rawLists) {
         throw new Error('Invalid list data');
       }
 
       const usedIds = new Set();
-      return parsed
-        .map(normalizeDish)
+      const lists = rawLists
+        .map((item) => normalizeList(item, usedIds))
         .filter(Boolean)
-        .map((dish) => {
-          if (usedIds.has(dish.id)) {
-            dish.id = createId();
-          }
-          usedIds.add(dish.id);
-          return dish;
-        });
+        .slice(0, MAX_LISTS);
+
+      return { lists, activeListId };
     } catch (error) {
       state.loadMessage = '本地清单读取失败，已从空清单开始。';
-      return [];
+      return { lists: [], activeListId: null };
     }
   }
 
@@ -193,6 +290,11 @@
   function showFormMessage(message) {
     elements.formMessage.textContent = message;
     elements.formMessage.hidden = !message;
+  }
+
+  function showListDialogError(message) {
+    elements.listDialogMessage.textContent = message;
+    elements.listDialogMessage.hidden = !message;
   }
 
   function showToast(message, type = 'success') {
@@ -222,19 +324,36 @@
     showFormMessage(message);
   }
 
-  function saveDishes() {
+  function persistLists() {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.dishes));
+      const payload = {
+        version: 2,
+        activeListId: state.activeListId,
+        lists: state.lists.map((list) => ({
+          id: list.id,
+          name: list.name,
+          createdAt: list.createdAt,
+          dishes: list.dishes,
+        })),
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
       state.storageAvailable = true;
-      setSaveStatus('saved', '已保存到本地');
-      clearFormMessage();
       return true;
     } catch (error) {
       state.storageAvailable = false;
-      setSaveStatus('error', '本地保存失败');
-      showFormMessage('改动暂时无法保存，请检查浏览器的存储设置。');
       return false;
     }
+  }
+
+  function saveLists() {
+    if (persistLists()) {
+      setSaveStatus('saved', '已保存到本地');
+      clearFormMessage();
+      return true;
+    }
+    setSaveStatus('error', '本地保存失败');
+    showFormMessage('改动暂时无法保存，请检查浏览器的存储设置。');
+    return false;
   }
 
   function updateDate() {
@@ -255,27 +374,27 @@
     elements.stageName.classList.toggle('is-long', [...name].length > 8);
   }
 
-  function getDish(id) {
-    return state.dishes.find((dish) => dish.id === id) || null;
-  }
-
   function randomButtonHint() {
-    const count = state.dishes.length;
+    const list = activeList();
+    const count = list ? list.dishes.length : 0;
+    const hasPicked = Boolean(list && list.lastPickedId);
     if (count === 0) {
       return '先添加几个选项，再来抽选';
     }
     if (count === 1) {
-      return state.lastPickedId ? '清单里只有一个选项，就是它啦' : '清单里只有一个选项，抽到就是它';
+      return hasPicked ? '清单里只有一个选项，就是它啦' : '清单里只有一个选项，抽到就是它';
     }
-    return state.lastPickedId ? '不满意？再抽一次，不会连续重复' : `清单里有 ${count} 个选项，交给运气决定`;
+    return hasPicked ? '不满意？再抽一次，不会连续重复' : `清单里有 ${count} 个选项，交给运气决定`;
   }
 
   function updateRandomAvailability() {
-    const count = state.dishes.length;
+    const list = activeList();
+    const count = list ? list.dishes.length : 0;
+    const hasPicked = Boolean(list && list.lastPickedId);
     elements.randomButton.disabled = count === 0 || state.rolling;
     elements.randomButtonText.textContent = state.rolling
       ? '正在挑选…'
-      : state.lastPickedId
+      : hasPicked
         ? '换一个'
         : '帮我选一个';
     if (!state.rolling) {
@@ -284,15 +403,57 @@
   }
 
   function updateCounts() {
-    const count = state.dishes.length;
+    const count = activeDishes().length;
     elements.dishCount.textContent = `${count} 个选项`;
     elements.copyButton.disabled = count === 0;
     elements.emptyState.hidden = count > 0;
     elements.dishList.hidden = count === 0;
   }
 
+  function updatePickerContext() {
+    const list = activeList();
+    const name = list ? list.name : DEFAULT_LIST_NAME;
+    elements.pickerListName.textContent = name;
+    document.title = `${name} · 随机选择器`;
+    elements.activeListName.textContent = name;
+    elements.renameListButton.disabled = !list;
+    elements.deleteListButton.disabled = state.lists.length <= 1;
+    elements.deleteListButton.title = state.lists.length <= 1
+      ? '至少保留一个清单'
+      : '删除当前清单';
+    elements.addListButton.disabled = state.lists.length >= MAX_LISTS;
+    elements.addListButton.title = state.lists.length >= MAX_LISTS
+      ? `最多可以创建 ${MAX_LISTS} 个清单`
+      : '新建清单';
+  }
+
+  function renderTabs() {
+    const list = activeList();
+    elements.listTabs.innerHTML = state.lists
+      .map((item) => {
+        const isActive = Boolean(list) && item.id === list.id;
+        const count = item.dishes.length;
+        return `
+          <button
+            type="button"
+            class="list-tab${isActive ? ' is-active' : ''}"
+            data-list-id="${escapeHTML(item.id)}"
+            aria-pressed="${isActive}"
+            tabindex="${isActive ? '0' : '-1'}"
+            title="${escapeHTML(item.name)}"
+          >
+            <span class="list-tab-name">${escapeHTML(item.name)}</span>
+            <span class="list-tab-count" aria-hidden="true">${count}</span>
+            <span class="sr-only">，${count} 个选项</span>
+          </button>
+        `;
+      })
+      .join('');
+  }
+
   function rowMarkup(dish, index) {
-    const isPicked = state.lastPickedId === dish.id;
+    const list = activeList();
+    const isPicked = Boolean(list && list.lastPickedId === dish.id);
     const rowNumber = String(index + 1).padStart(2, '0');
 
     if (state.editingId === dish.id) {
@@ -348,7 +509,7 @@
 
   function renderList({ manageFocus = true } = {}) {
     updateCounts();
-    elements.dishList.innerHTML = state.dishes.map(rowMarkup).join('');
+    elements.dishList.innerHTML = activeDishes().map(rowMarkup).join('');
 
     if (!manageFocus) {
       return;
@@ -378,18 +539,13 @@
   }
 
   function render() {
+    renderTabs();
+    updatePickerContext();
     renderList();
     updateRandomAvailability();
   }
 
-  function resetPicker() {
-    state.pickToken += 1;
-    if (state.rollTimer) {
-      window.clearInterval(state.rollTimer);
-      state.rollTimer = null;
-    }
-    state.rolling = false;
-    state.lastPickedId = null;
+  function clearStage() {
     elements.stagePlaceholder.hidden = false;
     elements.stageName.hidden = true;
     elements.stageName.textContent = '';
@@ -398,14 +554,57 @@
     elements.resultStage.classList.remove('is-rolling', 'is-revealed');
     elements.randomButton.classList.remove('is-picking');
     elements.selectionAnnouncement.textContent = '';
+  }
+
+  function cancelRoll() {
+    state.pickToken += 1;
+    if (state.rollTimer) {
+      window.clearInterval(state.rollTimer);
+      state.rollTimer = null;
+    }
+    if (state.rolling) {
+      state.rolling = false;
+      elements.resultStage.classList.remove('is-rolling');
+      elements.randomButton.classList.remove('is-picking');
+    }
+  }
+
+  function resetPicker() {
+    cancelRoll();
+    const list = activeList();
+    if (list) {
+      list.lastPickedId = null;
+    }
+    clearStage();
+    updateRandomAvailability();
+  }
+
+  function syncStageToList() {
+    cancelRoll();
+    const list = activeList();
+    const picked = list && list.lastPickedId ? getDish(list.lastPickedId) : null;
+
+    if (picked) {
+      elements.resultStage.classList.remove('is-rolling');
+      elements.resultStage.classList.add('is-revealed');
+      elements.stagePlaceholder.hidden = true;
+      elements.stageName.hidden = false;
+      elements.stageLabel.textContent = '上次选的是';
+      setStageName(picked.name);
+      elements.selectionAnnouncement.textContent = '';
+    } else {
+      clearStage();
+    }
+
     updateRandomAvailability();
   }
 
   function syncPickedName() {
-    if (!state.lastPickedId) {
+    const list = activeList();
+    if (!list || !list.lastPickedId) {
       return;
     }
-    const picked = getDish(state.lastPickedId);
+    const picked = getDish(list.lastPickedId);
     if (!picked) {
       resetPicker();
       return;
@@ -414,9 +613,13 @@
   }
 
   function chooseDish() {
-    const candidates = state.dishes.length > 1 && state.lastPickedId
-      ? state.dishes.filter((dish) => dish.id !== state.lastPickedId)
-      : state.dishes;
+    const list = activeList();
+    if (!list) {
+      return null;
+    }
+    const candidates = list.dishes.length > 1 && list.lastPickedId
+      ? list.dishes.filter((dish) => dish.id !== list.lastPickedId)
+      : list.dishes;
     if (!candidates.length) {
       return null;
     }
@@ -432,21 +635,22 @@
       state.rollTimer = null;
     }
 
-    if (!state.dishes.length) {
+    const list = activeList();
+    if (!list || !list.dishes.length) {
       resetPicker();
-      renderList();
+      render();
       return;
     }
 
     const picked = chooseDish();
     if (!picked) {
       resetPicker();
-      renderList();
+      render();
       return;
     }
 
     state.rolling = false;
-    state.lastPickedId = picked.id;
+    list.lastPickedId = picked.id;
     elements.resultStage.classList.remove('is-rolling');
     elements.resultStage.classList.add('is-revealed');
     elements.stageLabel.textContent = '就选这个';
@@ -479,7 +683,8 @@
   }
 
   function startRandomPick() {
-    if (state.rolling || state.dishes.length === 0) {
+    const dishes = activeDishes();
+    if (state.rolling || dishes.length === 0) {
       return;
     }
 
@@ -499,10 +704,11 @@
     elements.selectionAnnouncement.textContent = '';
 
     const showRollingDish = () => {
-      if (!state.dishes.length) {
+      const pool = activeDishes();
+      if (!pool.length) {
         return;
       }
-      const dish = state.dishes[randomIndex(state.dishes.length)];
+      const dish = pool[randomIndex(pool.length)];
       setStageName(dish.name);
     };
 
@@ -516,6 +722,49 @@
     window.setTimeout(() => finishRandomPick(token), 850);
   }
 
+  function focusListTab(id) {
+    window.requestAnimationFrame(() => {
+      const tab = elements.listTabs.querySelector(`[data-list-id="${cssEscape(id)}"]`);
+      if (!tab) {
+        return;
+      }
+      tab.focus();
+      tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+  }
+
+  function activateList(id, { focusTab = false, focusInput = false } = {}) {
+    const target = getList(id);
+    if (!target) {
+      return;
+    }
+    if (target.id === state.activeListId) {
+      if (focusTab) {
+        focusListTab(target.id);
+      }
+      return;
+    }
+
+    cancelRoll();
+    state.activeListId = target.id;
+    state.editingId = null;
+    state.deleteConfirmId = null;
+    clearFormMessage();
+    elements.dishInput.value = '';
+    elements.dishInput.removeAttribute('aria-invalid');
+    saveLists();
+    render();
+    syncStageToList();
+    elements.listScroll.scrollTop = 0;
+
+    if (focusInput) {
+      elements.dishInput.focus();
+    }
+    if (focusTab) {
+      focusListTab(target.id);
+    }
+  }
+
   function cancelRowStates() {
     state.editingId = null;
     state.deleteConfirmId = null;
@@ -523,6 +772,10 @@
 
   function handleAddDish(event) {
     event.preventDefault();
+    const list = activeList();
+    if (!list) {
+      return;
+    }
     const name = cleanName(elements.dishInput.value);
 
     if (!name) {
@@ -535,20 +788,20 @@
       return;
     }
 
-    if (state.dishes.some((dish) => nameKey(dish.name) === nameKey(name))) {
+    if (list.dishes.some((dish) => nameKey(dish.name) === nameKey(name))) {
       markAddInputInvalid(`「${name}」已经在清单里啦。`);
       return;
     }
 
     cancelRowStates();
-    state.dishes.push({
+    list.dishes.push({
       id: createId(),
       name,
       createdAt: Date.now(),
     });
     clearFormMessage();
     elements.dishInput.removeAttribute('aria-invalid');
-    saveDishes();
+    saveLists();
     render();
     elements.dishInput.value = '';
     elements.dishInput.focus();
@@ -602,7 +855,7 @@
       input.focus();
       return;
     }
-    if (state.dishes.some((item) => item.id !== id && nameKey(item.name) === nameKey(name))) {
+    if (activeDishes().some((item) => item.id !== id && nameKey(item.name) === nameKey(name))) {
       input.setCustomValidity('清单里已经有同名的选项了。');
       input.reportValidity();
       input.focus();
@@ -612,7 +865,7 @@
     input.setCustomValidity('');
     dish.name = name;
     state.editingId = null;
-    saveDishes();
+    saveLists();
     syncPickedName();
     renderList({ manageFocus: false });
     focusRowAction(id, 'edit');
@@ -637,19 +890,20 @@
 
   function confirmDelete() {
     const id = state.deleteConfirmId;
-    if (!id) {
+    const list = activeList();
+    if (!id || !list) {
       return;
     }
     const removedDish = getDish(id);
-    state.dishes = state.dishes.filter((dish) => dish.id !== id);
+    list.dishes = list.dishes.filter((dish) => dish.id !== id);
     state.deleteConfirmId = null;
     state.editingId = null;
 
-    if (state.lastPickedId === id) {
+    if (list.lastPickedId === id) {
       resetPicker();
     }
 
-    saveDishes();
+    saveLists();
     render();
     elements.dishInput.focus();
     if (removedDish) {
@@ -706,6 +960,194 @@
     }
   }
 
+  function handleTabsClick(event) {
+    const tab = event.target.closest('[data-list-id]');
+    if (!tab) {
+      return;
+    }
+    activateList(tab.dataset.listId, { focusTab: true });
+  }
+
+  function handleTabsKeydown(event) {
+    const tab = event.target.closest('[data-list-id]');
+    if (!tab) {
+      return;
+    }
+    const isArrow = event.key === 'ArrowLeft' || event.key === 'ArrowRight';
+    if (!isArrow && event.key !== 'Home' && event.key !== 'End') {
+      return;
+    }
+    event.preventDefault();
+
+    const index = state.lists.findIndex((list) => list.id === tab.dataset.listId);
+    if (index < 0) {
+      return;
+    }
+
+    let nextIndex;
+    if (event.key === 'Home') {
+      nextIndex = 0;
+    } else if (event.key === 'End') {
+      nextIndex = state.lists.length - 1;
+    } else {
+      const delta = event.key === 'ArrowRight' ? 1 : -1;
+      nextIndex = (index + delta + state.lists.length) % state.lists.length;
+    }
+
+    const nextList = state.lists[nextIndex];
+    activateList(nextList.id, { focusTab: true });
+  }
+
+  function validateListName(name, ignoreId = null) {
+    if (!name) {
+      return '先给清单起个名字吧。';
+    }
+    if ([...name].length > MAX_LIST_NAME_LENGTH) {
+      return `清单名称不能超过 ${MAX_LIST_NAME_LENGTH} 个字。`;
+    }
+    if (state.lists.some((list) => list.id !== ignoreId && nameKey(list.name) === nameKey(name))) {
+      return `已经有叫「${name}」的清单了。`;
+    }
+    return '';
+  }
+
+  function openListDialog(mode, listId = null) {
+    const list = listId ? getList(listId) : null;
+    if (mode !== 'create' && !list) {
+      return;
+    }
+
+    state.listDialogMode = mode;
+    state.listDialogListId = listId;
+    showListDialogError('');
+    elements.listNameInput.removeAttribute('aria-invalid');
+    elements.listNameField.hidden = mode === 'delete';
+    elements.listDialogSubmit.classList.toggle('is-danger', mode === 'delete');
+    elements.listDialogSubmit.classList.toggle('is-append', mode !== 'delete');
+
+    if (mode === 'delete') {
+      elements.listDialogKicker.textContent = 'DELETE LIST';
+      elements.listDialogTitle.textContent = '删除这个清单？';
+      elements.listDialogDesc.textContent = `「${list.name}」里的 ${list.dishes.length} 个选项会一起删除，无法恢复。`;
+      elements.listDialogSubmit.textContent = '删除';
+    } else {
+      const isRename = mode === 'rename';
+      elements.listDialogKicker.textContent = isRename ? 'RENAME LIST' : 'NEW LIST';
+      elements.listDialogTitle.textContent = isRename ? '重命名清单' : '新建清单';
+      elements.listDialogDesc.textContent = isRename
+        ? '换个名字，清单里的选项不会变化。'
+        : `每个清单的选项和随机抽选互不影响，最多可以创建 ${MAX_LISTS} 个清单。`;
+      elements.listDialogSubmit.textContent = isRename ? '保存' : '创建清单';
+      elements.listNameInput.value = isRename ? list.name : '';
+    }
+
+    if (!elements.listDialog.open) {
+      elements.listDialog.showModal();
+    }
+
+    window.requestAnimationFrame(() => {
+      if (mode === 'delete') {
+        elements.listDialogCancel.focus();
+      } else {
+        elements.listNameInput.focus();
+        elements.listNameInput.select();
+      }
+    });
+  }
+
+  function closeListDialog() {
+    if (elements.listDialog.open) {
+      elements.listDialog.close();
+    }
+  }
+
+  function deleteList(id) {
+    const index = state.lists.findIndex((list) => list.id === id);
+    if (index < 0 || state.lists.length <= 1) {
+      return;
+    }
+
+    cancelRoll();
+    const [removed] = state.lists.splice(index, 1);
+    const nextList = state.lists[Math.min(index, state.lists.length - 1)];
+    state.activeListId = nextList.id;
+    state.editingId = null;
+    state.deleteConfirmId = null;
+    clearFormMessage();
+    elements.dishInput.value = '';
+    elements.dishInput.removeAttribute('aria-invalid');
+    saveLists();
+    render();
+    syncStageToList();
+    elements.listScroll.scrollTop = 0;
+    focusListTab(nextList.id);
+    showToast(`已删除清单「${removed.name}」`);
+  }
+
+  function handleListDialogSubmit(event) {
+    event.preventDefault();
+    const mode = state.listDialogMode;
+
+    if (mode === 'delete') {
+      const list = getList(state.listDialogListId);
+      if (!list) {
+        closeListDialog();
+        return;
+      }
+      if (state.lists.length <= 1) {
+        showListDialogError('至少需要保留一个清单。');
+        return;
+      }
+      closeListDialog();
+      deleteList(list.id);
+      return;
+    }
+
+    if (mode !== 'create' && mode !== 'rename') {
+      return;
+    }
+
+    const name = cleanName(elements.listNameInput.value);
+    const error = validateListName(name, mode === 'rename' ? state.listDialogListId : null);
+    if (error) {
+      elements.listNameInput.setAttribute('aria-invalid', 'true');
+      showListDialogError(error);
+      elements.listNameInput.focus();
+      return;
+    }
+
+    if (mode === 'rename') {
+      const list = getList(state.listDialogListId);
+      if (!list) {
+        closeListDialog();
+        return;
+      }
+      const previousName = list.name;
+      list.name = name;
+      const saved = saveLists();
+      closeListDialog();
+      render();
+      focusListTab(list.id);
+      if (saved) {
+        showToast(`已将「${previousName}」重命名为「${name}」`);
+      } else {
+        showToast('清单已重命名，但无法保存到本地存储。', 'error');
+      }
+      return;
+    }
+
+    if (state.lists.length >= MAX_LISTS) {
+      showListDialogError(`最多只能创建 ${MAX_LISTS} 个清单。`);
+      return;
+    }
+
+    const list = createList(name);
+    state.lists.push(list);
+    closeListDialog();
+    activateList(list.id, { focusInput: true });
+    showToast(`已新建清单「${name}」`);
+  }
+
   function copyTextFallback(text) {
     const textarea = document.createElement('textarea');
     textarea.value = text;
@@ -728,11 +1170,12 @@
   }
 
   async function copyMenuToClipboard() {
-    if (!state.dishes.length) {
+    const list = activeList();
+    if (!list || !list.dishes.length) {
       return;
     }
 
-    const text = state.dishes.map((dish) => dish.name).join('\n');
+    const text = list.dishes.map((dish) => dish.name).join('\n');
     let copied = false;
 
     try {
@@ -749,7 +1192,7 @@
     }
 
     if (copied) {
-      showToast(`已复制 ${state.dishes.length} 个选项`);
+      showToast(`已复制「${list.name}」的 ${list.dishes.length} 个选项`);
     } else {
       showToast('复制失败，请允许浏览器访问剪贴板后重试。', 'error');
     }
@@ -833,10 +1276,11 @@
   function askPasteMode(dishes) {
     return new Promise((resolve) => {
       state.pendingPaste = resolve;
+      const list = activeList();
       const previewNames = dishes.slice(0, 8).map((dish) => dish.name);
       const extraCount = dishes.length - previewNames.length;
       elements.pasteDialogTitle.textContent = `导入 ${dishes.length} 个选项`;
-      elements.pasteDialogDesc.textContent = `当前清单已有 ${state.dishes.length} 个选项。追加会保留现有选项并自动去重，覆盖会替换全部选项。`;
+      elements.pasteDialogDesc.textContent = `当前清单「${list ? list.name : DEFAULT_LIST_NAME}」已有 ${activeDishes().length} 个选项。追加会保留现有选项并自动去重，覆盖会替换当前清单的全部选项。`;
       elements.pastePreview.textContent = `${previewNames.join('、')}${extraCount > 0 ? ` 等 ${dishes.length} 个` : ''}`;
 
       if (!elements.pasteDialog.open) {
@@ -857,6 +1301,11 @@
   }
 
   async function pasteMenuFromClipboard() {
+    const list = activeList();
+    if (!list) {
+      return;
+    }
+
     const text = await readMenuClipboard();
     if (text === null) {
       return;
@@ -865,25 +1314,25 @@
     try {
       const { dishes, skipped } = parseClipboardMenu(text);
       let mode = 'replace';
-      if (state.dishes.length > 0) {
+      if (list.dishes.length > 0) {
         mode = await askPasteMode(dishes);
         if (!mode) {
           return;
         }
       }
 
-      const existingNames = new Set(state.dishes.map((dish) => nameKey(dish.name)));
+      const existingNames = new Set(list.dishes.map((dish) => nameKey(dish.name)));
       const appendedDishes = mode === 'append'
         ? dishes.filter((dish) => !existingNames.has(nameKey(dish.name)))
         : dishes;
-      const nextDishes = mode === 'append' ? [...state.dishes, ...appendedDishes] : dishes;
+      const nextDishes = mode === 'append' ? [...list.dishes, ...appendedDishes] : dishes;
       const existingDuplicates = mode === 'append' ? dishes.length - appendedDishes.length : 0;
       const skippedTotal = skipped + existingDuplicates;
 
-      state.dishes = nextDishes;
+      list.dishes = nextDishes;
       cancelRowStates();
       resetPicker();
-      const saved = saveDishes();
+      const saved = saveLists();
       render();
       elements.listScroll.scrollTop = 0;
       const skippedMessage = skippedTotal > 0 ? `，跳过 ${skippedTotal} 条重复或无效内容` : '';
@@ -893,9 +1342,9 @@
       } else if (mode === 'append' && appendedDishes.length === 0) {
         showToast('没有新增选项，粘贴内容都已存在。');
       } else if (mode === 'append') {
-        showToast(`已追加 ${appendedDishes.length} 个选项${skippedMessage}`);
+        showToast(`已向「${list.name}」追加 ${appendedDishes.length} 个选项${skippedMessage}`);
       } else {
-        showToast(`已覆盖清单，共 ${dishes.length} 个选项${skippedMessage}`);
+        showToast(`已覆盖「${list.name}」，共 ${dishes.length} 个选项${skippedMessage}`);
       }
     } catch (error) {
       showToast(error.message || '粘贴失败，请检查剪贴板内容。', 'error');
@@ -915,6 +1364,32 @@
       if (event.target.matches('.edit-input')) {
         event.target.setCustomValidity('');
       }
+    });
+
+    elements.listTabs.addEventListener('click', handleTabsClick);
+    elements.listTabs.addEventListener('keydown', handleTabsKeydown);
+    elements.addListButton.addEventListener('click', () => openListDialog('create'));
+    elements.renameListButton.addEventListener('click', () => {
+      openListDialog('rename', state.activeListId);
+    });
+    elements.deleteListButton.addEventListener('click', () => {
+      openListDialog('delete', state.activeListId);
+    });
+
+    elements.listDialogForm.addEventListener('submit', handleListDialogSubmit);
+    elements.listDialogCancel.addEventListener('click', closeListDialog);
+    elements.listNameInput.addEventListener('input', () => {
+      elements.listNameInput.removeAttribute('aria-invalid');
+      showListDialogError('');
+    });
+    elements.listDialog.addEventListener('click', (event) => {
+      if (event.target === elements.listDialog) {
+        closeListDialog();
+      }
+    });
+    elements.listDialog.addEventListener('close', () => {
+      state.listDialogMode = null;
+      state.listDialogListId = null;
     });
 
     elements.randomButton.addEventListener('click', startRandomPick);
@@ -941,6 +1416,9 @@
       if (event.key !== 'Escape') {
         return;
       }
+      if (elements.listDialog.open || elements.pasteDialog.open) {
+        return;
+      }
       if (state.editingId) {
         cancelEditing();
       } else if (state.deleteConfirmId) {
@@ -951,11 +1429,20 @@
 
   function init() {
     updateDate();
-    state.dishes = loadDishes();
+    const loaded = loadData();
+    state.lists = loaded.lists.length ? loaded.lists : [createList(DEFAULT_LIST_NAME)];
+    state.activeListId = loaded.activeListId && state.lists.some((list) => list.id === loaded.activeListId)
+      ? loaded.activeListId
+      : state.lists[0].id;
+
     bindEvents();
-    resetPicker();
+
+    if (!state.loadMessage) {
+      persistLists();
+    }
+
     render();
-    updateRandomAvailability();
+    syncStageToList();
 
     if (state.loadMessage) {
       setSaveStatus('error', '本地数据读取异常');
