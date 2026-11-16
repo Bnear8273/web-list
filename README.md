@@ -29,7 +29,7 @@ python3 -m http.server 8000
 
 所有文件都是静态文件，资源路径均使用相对路径，放在项目子路径下也能正常打开。由于主仓库已绑定 `github.bnear8273.top`，本项目自动发布在：
 
-<https://github.bnear8273.top/web-menu-utility/>
+<https://github.bnear8273.top/web-list/>
 
 ## 复制与粘贴导入
 
