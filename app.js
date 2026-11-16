@@ -62,6 +62,8 @@
     stageName: $('#stageName'),
     selectionAnnouncement: $('#selectionAnnouncement'),
     listTabs: $('#listTabs'),
+    tabsPrevButton: $('#tabsPrevButton'),
+    tabsNextButton: $('#tabsNextButton'),
     addListButton: $('#addListButton'),
     activeListName: $('#activeListName'),
     renameListButton: $('#renameListButton'),
@@ -477,6 +479,61 @@
         `;
       })
       .join('');
+
+    updateTabScrollButtons();
+    scrollActiveTabIntoView();
+    window.requestAnimationFrame(() => {
+      updateTabScrollButtons();
+      scrollActiveTabIntoView();
+    });
+  }
+
+  function updateTabScrollButtons() {
+    const tabs = elements.listTabs;
+    const maxScroll = Math.max(0, tabs.scrollWidth - tabs.clientWidth);
+    const overflow = maxScroll > 1;
+    elements.tabsPrevButton.hidden = !overflow;
+    elements.tabsNextButton.hidden = !overflow;
+    if (!overflow) {
+      return;
+    }
+    elements.tabsPrevButton.disabled = tabs.scrollLeft <= 1;
+    elements.tabsNextButton.disabled = tabs.scrollLeft >= maxScroll - 1;
+  }
+
+  function scrollActiveTabIntoView() {
+    const tabs = elements.listTabs;
+    const active = tabs.querySelector('.list-tab.is-active');
+    if (!active) {
+      return;
+    }
+    const box = tabs.getBoundingClientRect();
+    const tab = active.getBoundingClientRect();
+    const padding = 8;
+    if (tab.left < box.left + padding) {
+      tabs.scrollLeft -= box.left + padding - tab.left;
+    } else if (tab.right > box.right - padding) {
+      tabs.scrollLeft += tab.right - (box.right - padding);
+    }
+  }
+
+  function scrollTabsBy(direction) {
+    const tabs = elements.listTabs;
+    const step = Math.max(140, tabs.clientWidth * 0.7);
+    tabs.scrollBy({ left: direction * step, behavior: 'smooth' });
+  }
+
+  function handleTabsWheel(event) {
+    const tabs = elements.listTabs;
+    if (tabs.scrollWidth - tabs.clientWidth <= 1) {
+      return;
+    }
+    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+      return;
+    }
+    event.preventDefault();
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? tabs.clientWidth : 1;
+    tabs.scrollLeft += event.deltaY * unit;
   }
 
   function rowMarkup(dish, index) {
@@ -1470,6 +1527,14 @@
 
     elements.listTabs.addEventListener('click', handleTabsClick);
     elements.listTabs.addEventListener('keydown', handleTabsKeydown);
+    elements.listTabs.addEventListener('scroll', updateTabScrollButtons, { passive: true });
+    elements.listTabs.addEventListener('wheel', handleTabsWheel, { passive: false });
+    elements.tabsPrevButton.addEventListener('click', () => scrollTabsBy(-1));
+    elements.tabsNextButton.addEventListener('click', () => scrollTabsBy(1));
+    window.addEventListener('resize', updateTabScrollButtons);
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(updateTabScrollButtons).catch(() => {});
+    }
     elements.addListButton.addEventListener('click', () => openListDialog('create'));
     elements.renameListButton.addEventListener('click', () => {
       openListDialog('rename', state.activeListId);
