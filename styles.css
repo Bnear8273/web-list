@@ -64,6 +64,7 @@ input {
 button {
   color: inherit;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 button:disabled {
@@ -517,7 +518,7 @@ p {
 .random-button {
   display: flex;
   width: 100%;
-  min-height: 51px;
+  min-height: 54px;
   align-items: center;
   justify-content: center;
   gap: 9px;
@@ -643,17 +644,17 @@ p {
 
 .list-tab {
   display: inline-flex;
-  max-width: 158px;
-  min-height: 33px;
+  max-width: 168px;
+  min-height: 36px;
   align-items: center;
-  gap: 6px;
-  padding: 0 8px 0 12px;
+  gap: 7px;
+  padding: 0 9px 0 13px;
   color: var(--ink-soft);
   background: var(--surface-soft);
   border: 1px solid var(--line);
   border-radius: 999px;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
   white-space: nowrap;
   scroll-snap-align: start;
@@ -680,14 +681,14 @@ p {
 
 .list-tab-count {
   display: grid;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
   color: var(--ink-muted);
   background: rgba(37, 60, 48, 0.07);
   border-radius: 999px;
   place-items: center;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   line-height: 1;
 }
@@ -699,8 +700,8 @@ p {
 
 .list-add {
   display: grid;
-  width: 33px;
-  height: 33px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   color: var(--ink-soft);
   background: var(--surface-soft);
@@ -712,8 +713,8 @@ p {
 }
 
 .list-add svg {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
 }
 
 .list-add:hover:not(:disabled) {
@@ -752,14 +753,14 @@ p {
 .list-meta-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   flex-shrink: 0;
 }
 
 .list-meta .text-action {
-  min-height: 25px;
-  padding: 0 7px;
-  font-size: 10px;
+  min-height: 32px;
+  padding: 0 9px;
+  font-size: 11px;
 }
 
 .list-tools {
@@ -767,7 +768,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 2px;
+  margin-top: 1px;
   color: var(--ink-muted);
   font-size: 10px;
   line-height: 1.5;
@@ -793,9 +794,9 @@ p {
 }
 
 .list-tools .text-action {
-  min-height: 25px;
-  padding: 0 7px;
-  font-size: 10px;
+  min-height: 32px;
+  padding: 0 9px;
+  font-size: 11px;
 }
 
 .add-form {
@@ -818,13 +819,13 @@ p {
 .add-form input {
   width: 100%;
   min-width: 0;
-  height: 39px;
-  padding: 0 8px;
+  height: 42px;
+  padding: 0 9px;
   color: var(--ink);
   background: transparent;
   border: 0;
   outline: 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .add-form input::placeholder {
@@ -833,25 +834,25 @@ p {
 
 .add-button {
   display: inline-flex;
-  min-width: 82px;
-  height: 39px;
+  min-width: 86px;
+  height: 42px;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 0 14px;
+  gap: 5px;
+  padding: 0 16px;
   color: var(--cream);
   background: var(--green);
   border: 0;
-  border-radius: 10px;
+  border-radius: 11px;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   transition: background-color 160ms ease, transform 160ms ease;
 }
 
 .add-button svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 
 .add-button:hover {
@@ -907,7 +908,7 @@ p {
 
 .dish-row {
   display: flex;
-  min-height: 52px;
+  min-height: 58px;
   align-items: center;
   gap: 10px;
   padding: 5px 7px 5px 11px;
@@ -990,7 +991,7 @@ p {
 .row-actions {
   display: flex;
   align-items: center;
-  gap: 1px;
+  gap: 3px;
   opacity: 0.46;
   flex-shrink: 0;
   transition: opacity 160ms ease;
@@ -1003,20 +1004,24 @@ p {
 
 .row-action {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   color: var(--ink-muted);
   background: transparent;
   border: 0;
-  border-radius: 8px;
+  border-radius: 9px;
   place-items: center;
-  transition: color 150ms ease, background-color 150ms ease;
+  transition: color 150ms ease, background-color 150ms ease, transform 120ms ease;
+}
+
+.row-action:active {
+  transform: scale(0.94);
 }
 
 .row-action svg {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
 }
 
 .row-action:hover {
@@ -1065,14 +1070,14 @@ p {
 .edit-input {
   width: 100%;
   min-width: 0;
-  height: 37px;
-  padding: 0 10px;
+  height: 42px;
+  padding: 0 12px;
   color: var(--ink);
   background: var(--surface);
   border: 1px solid #b7c4b5;
-  border-radius: 8px;
+  border-radius: 9px;
   outline: 0;
-  font-size: 13px;
+  font-size: 14px;
   box-shadow: 0 0 0 3px rgba(109, 135, 111, 0.08);
 }
 
@@ -1088,18 +1093,22 @@ p {
 
 .mini-action {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 9px;
   place-items: center;
-  transition: background-color 150ms ease, color 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease, transform 120ms ease;
+}
+
+.mini-action:active {
+  transform: scale(0.94);
 }
 
 .mini-action svg {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
 }
 
 .mini-action.is-save {
@@ -1143,18 +1152,18 @@ p {
 .confirm-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .text-action {
-  min-height: 29px;
-  padding: 0 8px;
+  min-height: 32px;
+  padding: 0 10px;
   color: var(--ink-muted);
   background: transparent;
   border: 0;
-  border-radius: 7px;
-  font-size: 11px;
+  border-radius: 8px;
+  font-size: 12px;
   transition: background-color 150ms ease, color 150ms ease;
 }
 
@@ -1256,22 +1265,22 @@ p {
 
 .data-action {
   display: inline-flex;
-  min-height: 28px;
+  min-height: 32px;
   align-items: center;
-  gap: 4px;
-  padding: 0 8px;
+  gap: 5px;
+  padding: 0 10px;
   color: var(--ink-soft);
   background: var(--surface-soft);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  font-size: 10px;
+  border-radius: 9px;
+  font-size: 11px;
   line-height: 1;
   transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, opacity 150ms ease;
 }
 
 .data-action svg {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
 }
 
 .data-action:hover:not(:disabled) {
@@ -1381,11 +1390,11 @@ p {
 }
 
 .dialog-button {
-  min-height: 39px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 17px;
   border: 1px solid transparent;
-  border-radius: 9px;
-  font-size: 11px;
+  border-radius: 10px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
   transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
@@ -1444,14 +1453,14 @@ p {
 
 .list-name-field input {
   width: 100%;
-  height: 44px;
-  padding: 0 13px;
+  height: 46px;
+  padding: 0 14px;
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border-radius: 11px;
   outline: 0;
-  font-size: 13px;
+  font-size: 14px;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
@@ -1680,7 +1689,7 @@ p {
   }
 
   .random-button {
-    min-height: 49px;
+    min-height: 54px;
   }
 
   .menu-card {
@@ -1698,29 +1707,33 @@ p {
   }
 
   .list-tab {
-    max-width: 136px;
+    max-width: 150px;
+    min-height: 40px;
   }
 
-  .list-tab-name {
-    max-width: 86px;
+  .list-add {
+    width: 40px;
+    height: 40px;
   }
 
   .list-meta {
-    font-size: 9px;
+    font-size: 10px;
   }
 
   .list-meta .text-action {
-    padding: 0 6px;
-    font-size: 9px;
+    min-height: 36px;
+    padding: 0 9px;
+    font-size: 11px;
   }
 
   .list-tools {
-    font-size: 9px;
+    font-size: 10px;
   }
 
   .list-tools .text-action {
-    padding: 0 6px;
-    font-size: 9px;
+    min-height: 36px;
+    padding: 0 9px;
+    font-size: 11px;
   }
 
   .add-form {
@@ -1728,12 +1741,15 @@ p {
   }
 
   .add-form input {
-    font-size: 12px;
+    height: 44px;
+    font-size: 16px;
   }
 
   .add-button {
-    min-width: 72px;
-    padding: 0 11px;
+    min-width: 80px;
+    height: 44px;
+    padding: 0 13px;
+    font-size: 14px;
   }
 
   .list-scroll {
@@ -1742,16 +1758,17 @@ p {
   }
 
   .dish-row {
-    min-height: 50px;
-    padding-left: 8px;
+    min-height: 58px;
+    padding-left: 9px;
   }
 
   .row-actions {
-    opacity: 0.7;
+    opacity: 0.8;
+    gap: 3px;
   }
 
   .dish-name {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .picked-tag,
@@ -1760,8 +1777,28 @@ p {
   }
 
   .row-action {
-    width: 29px;
-    height: 29px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .row-action svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mini-action {
+    width: 40px;
+    height: 40px;
+  }
+
+  .text-action {
+    min-height: 36px;
+    font-size: 12px;
+  }
+
+  .edit-input {
+    height: 44px;
+    font-size: 16px;
   }
 
   .form-message {
@@ -1773,9 +1810,19 @@ p {
   }
 
   .data-action {
-    min-height: 27px;
-    padding: 0 7px;
-    font-size: 9px;
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .data-action svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .list-name-field input {
+    height: 48px;
+    font-size: 16px;
   }
 
   .site-footer {
@@ -1807,6 +1854,7 @@ p {
   }
 
   .dialog-button {
+    min-height: 46px;
     flex: 1 1 calc(50% - 4px);
     padding: 0 10px;
   }
@@ -1851,7 +1899,7 @@ p {
   }
 
   .row-action {
-    width: 27px;
+    width: 38px;
   }
 
   .menu-foot {
