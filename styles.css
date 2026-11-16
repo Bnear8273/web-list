@@ -605,20 +605,6 @@ p {
   letter-spacing: 0.035em;
 }
 
-.dish-count {
-  display: inline-flex;
-  min-height: 25px;
-  align-items: center;
-  padding: 0 10px;
-  color: var(--green-light);
-  background: var(--green-pale);
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
 /* List switcher */
 .list-switcher {
   display: flex;

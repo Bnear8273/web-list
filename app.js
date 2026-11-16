@@ -61,7 +61,6 @@
     stagePlaceholder: $('#stagePlaceholder'),
     stageName: $('#stageName'),
     selectionAnnouncement: $('#selectionAnnouncement'),
-    dishCount: $('#dishCount'),
     listTabs: $('#listTabs'),
     addListButton: $('#addListButton'),
     renameListButton: $('#renameListButton'),
@@ -430,7 +429,6 @@
     const dishes = activeDishes();
     const count = dishes.length;
     const enabledCount = dishes.filter((dish) => !dish.disabled).length;
-    elements.dishCount.textContent = `${count} 个选项`;
     elements.enableSummary.textContent = `参与抽选 ${enabledCount} / ${count}`;
     elements.enableAllButton.disabled = count === 0 || enabledCount === count;
     elements.disableAllButton.disabled = count === 0 || enabledCount === 0;
