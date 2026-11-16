@@ -762,6 +762,42 @@ p {
   font-size: 10px;
 }
 
+.list-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.enable-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.enable-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.enable-divider {
+  color: var(--line-strong);
+  font-size: 9px;
+}
+
+.list-tools .text-action {
+  min-height: 25px;
+  padding: 0 7px;
+  font-size: 10px;
+}
+
 .add-form {
   display: flex;
   gap: 8px;
@@ -915,6 +951,14 @@ p {
   font-weight: 600;
 }
 
+.dish-row.is-disabled .row-number {
+  color: #c5bcaa;
+}
+
+.dish-row.is-disabled .dish-name {
+  color: #a7a193;
+}
+
 .picked-tag {
   display: inline-flex;
   min-height: 20px;
@@ -923,6 +967,20 @@ p {
   color: #627a60;
   background: rgba(255, 253, 248, 0.72);
   border: 1px solid #d8e2d2;
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.disabled-tag {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  padding: 0 7px;
+  color: #a06b58;
+  background: rgba(194, 95, 69, 0.06);
+  border: 1px solid rgba(194, 95, 69, 0.16);
   border-radius: 999px;
   font-size: 9px;
   line-height: 1;
@@ -969,6 +1027,24 @@ p {
 .row-action.is-delete:hover {
   color: var(--danger);
   background: rgba(180, 81, 58, 0.07);
+}
+
+.row-action.is-toggle {
+  color: #98a097;
+}
+
+.row-action.is-toggle:hover {
+  color: var(--green);
+  background: rgba(37, 60, 48, 0.07);
+}
+
+.dish-row.is-disabled .row-action.is-toggle {
+  color: #b0715d;
+}
+
+.dish-row.is-disabled .row-action.is-toggle:hover {
+  color: var(--terracotta);
+  background: rgba(194, 95, 69, 0.09);
 }
 
 /* Inline edit */
@@ -1638,6 +1714,15 @@ p {
     font-size: 9px;
   }
 
+  .list-tools {
+    font-size: 9px;
+  }
+
+  .list-tools .text-action {
+    padding: 0 6px;
+    font-size: 9px;
+  }
+
   .add-form {
     margin-top: 12px;
   }
@@ -1669,7 +1754,8 @@ p {
     font-size: 13px;
   }
 
-  .picked-tag {
+  .picked-tag,
+  .disabled-tag {
     display: none;
   }
 

@@ -9,8 +9,8 @@
   <title>随机选择器 · 我的小清单</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <!-- 更新 app.js 或 styles.css 后同步递增版本号，避免浏览器混用旧缓存。 -->
-  <link rel="stylesheet" href="./styles.css?v=20261116-6">
-  <script src="./app.js?v=20261116-6" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=20261116-7">
+  <script src="./app.js?v=20261116-7" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -101,6 +101,15 @@
           <span class="list-meta-actions">
             <button type="button" class="text-action" id="renameListButton">重命名</button>
             <button type="button" class="text-action is-danger" id="deleteListButton">删除清单</button>
+          </span>
+        </div>
+
+        <div class="list-tools">
+          <span class="enable-summary" id="enableSummary">参与抽选 0 / 0</span>
+          <span class="enable-actions">
+            <button type="button" class="text-action" id="enableAllButton" disabled>全部启用</button>
+            <span class="enable-divider" aria-hidden="true">·</span>
+            <button type="button" class="text-action" id="disableAllButton" disabled>全部禁用</button>
           </span>
         </div>
 

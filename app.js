@@ -31,6 +31,19 @@
         <path d="m7 7 10 10M17 7 7 17" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
       </svg>
     `,
+    eye: `
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3.5 12s3.2-5.2 8.5-5.2 8.5 5.2 8.5 5.2-3.2 5.2-8.5 5.2S3.5 12 3.5 12Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+        <circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.7"/>
+      </svg>
+    `,
+    eyeOff: `
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4.2 4.6 19.8 19.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M9.4 7.2c.8-.2 1.7-.4 2.6-.4 5.3 0 8.5 5.2 8.5 5.2a15.6 15.6 0 0 1-2.9 3.4M6.3 8.4C4.6 9.7 3.5 12 3.5 12s3.2 5.2 8.5 5.2c1 0 2-.2 2.8-.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10.2 10.3a2.6 2.6 0 0 0 3.6 3.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+      </svg>
+    `,
   };
 
   const $ = (selector) => document.querySelector(selector);
@@ -54,6 +67,9 @@
     activeListName: $('#activeListName'),
     renameListButton: $('#renameListButton'),
     deleteListButton: $('#deleteListButton'),
+    enableSummary: $('#enableSummary'),
+    enableAllButton: $('#enableAllButton'),
+    disableAllButton: $('#disableAllButton'),
     addForm: $('#addForm'),
     dishInput: $('#dishInput'),
     formMessage: $('#formMessage'),
@@ -161,6 +177,10 @@
     return list ? list.dishes : [];
   }
 
+  function enabledDishes() {
+    return activeDishes().filter((dish) => !dish.disabled);
+  }
+
   function getList(id) {
     return state.lists.find((list) => list.id === id) || null;
   }
@@ -181,6 +201,7 @@
       id: typeof raw.id === 'string' && raw.id ? raw.id : createId(),
       name,
       createdAt: Number.isFinite(Number(raw.createdAt)) ? Number(raw.createdAt) : Date.now(),
+      disabled: raw.disabled === true,
     };
   }
 
@@ -376,20 +397,24 @@
 
   function randomButtonHint() {
     const list = activeList();
-    const count = list ? list.dishes.length : 0;
+    const total = list ? list.dishes.length : 0;
+    const count = list ? list.dishes.filter((dish) => !dish.disabled).length : 0;
     const hasPicked = Boolean(list && list.lastPickedId);
-    if (count === 0) {
+    if (total === 0) {
       return '先添加几个选项，再来抽选';
     }
-    if (count === 1) {
-      return hasPicked ? '清单里只有一个选项，就是它啦' : '清单里只有一个选项，抽到就是它';
+    if (count === 0) {
+      return '所有选项都已禁用，启用一些再来抽选';
     }
-    return hasPicked ? '不满意？再抽一次，不会连续重复' : `清单里有 ${count} 个选项，交给运气决定`;
+    if (count === 1) {
+      return hasPicked ? '只有 1 个选项参与抽选，就是它啦' : '只有 1 个选项参与抽选，抽到就是它';
+    }
+    return hasPicked ? '不满意？再抽一次，不会连续重复' : `有 ${count} 个选项参与抽选，交给运气决定`;
   }
 
   function updateRandomAvailability() {
     const list = activeList();
-    const count = list ? list.dishes.length : 0;
+    const count = list ? list.dishes.filter((dish) => !dish.disabled).length : 0;
     const hasPicked = Boolean(list && list.lastPickedId);
     elements.randomButton.disabled = count === 0 || state.rolling;
     elements.randomButtonText.textContent = state.rolling
@@ -403,8 +428,13 @@
   }
 
   function updateCounts() {
-    const count = activeDishes().length;
+    const dishes = activeDishes();
+    const count = dishes.length;
+    const enabledCount = dishes.filter((dish) => !dish.disabled).length;
     elements.dishCount.textContent = `${count} 个选项`;
+    elements.enableSummary.textContent = `参与抽选 ${enabledCount} / ${count}`;
+    elements.enableAllButton.disabled = count === 0 || enabledCount === count;
+    elements.disableAllButton.disabled = count === 0 || enabledCount === 0;
     elements.copyButton.disabled = count === 0;
     elements.emptyState.hidden = count > 0;
     elements.dishList.hidden = count === 0;
@@ -495,11 +525,21 @@
     }
 
     return `
-      <li class="dish-row${isPicked ? ' is-picked' : ''}" data-id="${escapeHTML(dish.id)}">
+      <li class="dish-row${isPicked ? ' is-picked' : ''}${dish.disabled ? ' is-disabled' : ''}" data-id="${escapeHTML(dish.id)}">
         <span class="row-number" aria-hidden="true">${rowNumber}</span>
         <span class="dish-name">${escapeHTML(dish.name)}</span>
         ${isPicked ? '<span class="picked-tag">已选</span>' : ''}
+        ${dish.disabled ? '<span class="disabled-tag">已禁用</span>' : ''}
         <span class="row-actions">
+          <button
+            type="button"
+            class="row-action is-toggle"
+            data-action="toggle-draw"
+            role="switch"
+            aria-checked="${dish.disabled ? 'false' : 'true'}"
+            aria-label="「${escapeHTML(dish.name)}」参与抽选"
+            title="${dish.disabled ? '启用抽选' : '禁用抽选'}"
+          >${dish.disabled ? ICONS.eyeOff : ICONS.eye}</button>
           <button type="button" class="row-action" data-action="edit" aria-label="修改「${escapeHTML(dish.name)}」" title="修改">${ICONS.edit}</button>
           <button type="button" class="row-action is-delete" data-action="delete" aria-label="删除「${escapeHTML(dish.name)}」" title="删除">${ICONS.delete}</button>
         </span>
@@ -584,7 +624,7 @@
     const list = activeList();
     const picked = list && list.lastPickedId ? getDish(list.lastPickedId) : null;
 
-    if (picked) {
+    if (picked && !picked.disabled) {
       elements.resultStage.classList.remove('is-rolling');
       elements.resultStage.classList.add('is-revealed');
       elements.stagePlaceholder.hidden = true;
@@ -605,7 +645,7 @@
       return;
     }
     const picked = getDish(list.lastPickedId);
-    if (!picked) {
+    if (!picked || picked.disabled) {
       resetPicker();
       return;
     }
@@ -617,9 +657,11 @@
     if (!list) {
       return null;
     }
-    const candidates = list.dishes.length > 1 && list.lastPickedId
-      ? list.dishes.filter((dish) => dish.id !== list.lastPickedId)
-      : list.dishes;
+    const pool = list.dishes.filter((dish) => !dish.disabled);
+    const lastPicked = pool.find((dish) => dish.id === list.lastPickedId);
+    const candidates = pool.length > 1 && lastPicked
+      ? pool.filter((dish) => dish.id !== lastPicked.id)
+      : pool;
     if (!candidates.length) {
       return null;
     }
@@ -636,7 +678,7 @@
     }
 
     const list = activeList();
-    if (!list || !list.dishes.length) {
+    if (!list || !list.dishes.some((dish) => !dish.disabled)) {
       resetPicker();
       render();
       return;
@@ -683,7 +725,7 @@
   }
 
   function startRandomPick() {
-    const dishes = activeDishes();
+    const dishes = enabledDishes();
     if (state.rolling || dishes.length === 0) {
       return;
     }
@@ -704,7 +746,7 @@
     elements.selectionAnnouncement.textContent = '';
 
     const showRollingDish = () => {
-      const pool = activeDishes();
+      const pool = enabledDishes();
       if (!pool.length) {
         return;
       }
@@ -798,6 +840,7 @@
       id: createId(),
       name,
       createdAt: Date.now(),
+      disabled: false,
     });
     clearFormMessage();
     elements.dishInput.removeAttribute('aria-invalid');
@@ -928,6 +971,63 @@
     });
   }
 
+  function toggleDishDraw(id) {
+    const list = activeList();
+    const dish = getDish(id);
+    if (!list || !dish) {
+      return;
+    }
+
+    dish.disabled = !dish.disabled;
+    if (dish.disabled && list.lastPickedId === dish.id) {
+      resetPicker();
+    }
+
+    saveLists();
+    render();
+    focusRowAction(id, 'toggle-draw');
+    elements.selectionAnnouncement.textContent = dish.disabled
+      ? `已禁用「${dish.name}」的抽选`
+      : `「${dish.name}」已参与抽选`;
+  }
+
+  function setAllDishesDisabled(disabled) {
+    const list = activeList();
+    if (!list || !list.dishes.length) {
+      return;
+    }
+
+    const enabledCount = list.dishes.filter((dish) => !dish.disabled).length;
+    const alreadyDone = disabled
+      ? enabledCount === 0
+      : enabledCount === list.dishes.length;
+    if (alreadyDone) {
+      return;
+    }
+
+    list.dishes.forEach((dish) => {
+      dish.disabled = disabled;
+    });
+
+    if (disabled) {
+      resetPicker();
+    }
+
+    saveLists();
+    render();
+    updateRandomAvailability();
+    elements.selectionAnnouncement.textContent = disabled
+      ? '已禁用全部选项的抽选'
+      : '已启用全部选项的抽选';
+
+    window.requestAnimationFrame(() => {
+      const nextButton = disabled ? elements.enableAllButton : elements.disableAllButton;
+      if (!nextButton.disabled) {
+        nextButton.focus();
+      }
+    });
+  }
+
   function handleListClick(event) {
     const actionButton = event.target.closest('button[data-action]');
     if (!actionButton) {
@@ -940,6 +1040,9 @@
     const id = row.dataset.id;
 
     switch (actionButton.dataset.action) {
+      case 'toggle-draw':
+        toggleDishDraw(id);
+        break;
       case 'edit':
         startEditing(id);
         break;
@@ -1248,6 +1351,7 @@
         createdAt: entry && typeof entry === 'object' && Number.isFinite(Number(entry.createdAt))
           ? Number(entry.createdAt)
           : Date.now(),
+        disabled: false,
       });
     });
 
@@ -1375,6 +1479,8 @@
     elements.deleteListButton.addEventListener('click', () => {
       openListDialog('delete', state.activeListId);
     });
+    elements.enableAllButton.addEventListener('click', () => setAllDishesDisabled(false));
+    elements.disableAllButton.addEventListener('click', () => setAllDishesDisabled(true));
 
     elements.listDialogForm.addEventListener('submit', handleListDialogSubmit);
     elements.listDialogCancel.addEventListener('click', closeListDialog);
