@@ -49,9 +49,8 @@
     dishList: $('#dishList'),
     listScroll: $('#listScroll'),
     emptyState: $('#emptyState'),
-    exportButton: $('#exportButton'),
-    importButton: $('#importButton'),
-    importFile: $('#importFile'),
+    copyButton: $('#copyButton'),
+    pasteButton: $('#pasteButton'),
     toastRegion: $('#toastRegion'),
   };
 
@@ -271,7 +270,7 @@
   function updateCounts() {
     const count = state.dishes.length;
     elements.dishCount.textContent = `${count} 道菜`;
-    elements.exportButton.disabled = count === 0;
+    elements.copyButton.disabled = count === 0;
     elements.emptyState.hidden = count > 0;
     elements.dishList.hidden = count === 0;
   }
@@ -691,75 +690,110 @@
     }
   }
 
-  function exportMenu() {
+  function copyTextFallback(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '-9999px';
+    document.body.append(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch (error) {
+      copied = false;
+    }
+    textarea.remove();
+    return copied;
+  }
+
+  async function copyMenuToClipboard() {
     if (!state.dishes.length) {
       return;
     }
 
-    const payload = {
-      app: '今天吃什么',
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      dishes: state.dishes.map((dish) => dish.name),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json;charset=utf-8',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const date = new Date();
-    const stamp = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, '0'),
-      String(date.getDate()).padStart(2, '0'),
-    ].join('-');
+    const text = state.dishes.map((dish) => dish.name).join('\n');
+    let copied = false;
 
-    link.href = url;
-    link.download = `今天吃什么-菜单备份-${stamp}.json`;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast(`已导出 ${state.dishes.length} 道菜`);
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch (error) {
+      copied = false;
+    }
+
+    if (!copied) {
+      copied = copyTextFallback(text);
+    }
+
+    if (copied) {
+      showToast(`已复制 ${state.dishes.length} 道菜`);
+    } else {
+      showToast('复制失败，请允许浏览器访问剪贴板后重试。', 'error');
+    }
   }
 
-  function parseBackup(payload) {
-    const rawDishes = Array.isArray(payload)
-      ? payload
-      : payload && typeof payload === 'object' && Array.isArray(payload.dishes)
-        ? payload.dishes
-        : null;
-
-    if (!rawDishes) {
-      throw new Error('文件格式不正确，找不到菜品数据。');
+  function parseClipboardMenu(text) {
+    const content = String(text ?? '').trim();
+    if (!content) {
+      throw new Error('剪贴板里没有菜单内容。');
     }
-    if (rawDishes.length === 0) {
-      throw new Error('备份文件中没有菜品。');
+
+    let rawDishes;
+    if (content.startsWith('[') || content.startsWith('{')) {
+      let payload;
+      try {
+        payload = JSON.parse(content);
+      } catch (error) {
+        throw new Error('剪贴板里的 JSON 格式不正确。');
+      }
+      rawDishes = Array.isArray(payload)
+        ? payload
+        : payload && typeof payload === 'object' && Array.isArray(payload.dishes)
+          ? payload.dishes
+          : null;
+      if (!rawDishes) {
+        throw new Error('没有找到可导入的菜品数据。');
+      }
+    } else {
+      rawDishes = content.split(/\r?\n/);
     }
 
     const dishes = [];
     const usedNames = new Set();
 
     rawDishes.forEach((entry) => {
-      const raw = typeof entry === 'string' ? { name: entry } : entry;
-      const dish = normalizeDish(raw);
-      if (!dish) {
+      const rawName = typeof entry === 'string'
+        ? entry
+        : entry && typeof entry === 'object'
+          ? entry.name
+          : '';
+      const name = cleanName(rawName);
+      if (!name || [...name].length > MAX_NAME_LENGTH) {
         return;
       }
-      const key = nameKey(dish.name);
+      const key = nameKey(name);
       if (usedNames.has(key)) {
         return;
       }
       usedNames.add(key);
       dishes.push({
         id: createId(),
-        name: dish.name,
-        createdAt: dish.createdAt,
+        name,
+        createdAt: entry && typeof entry === 'object' && Number.isFinite(Number(entry.createdAt))
+          ? Number(entry.createdAt)
+          : Date.now(),
       });
     });
 
     if (dishes.length === 0) {
-      throw new Error('备份文件中没有有效的菜品。');
+      throw new Error('没有找到有效的菜名。');
     }
 
     return {
@@ -768,33 +802,29 @@
     };
   }
 
-  async function handleImportFile(event) {
-    const input = event.target;
-    const file = input.files?.[0];
-    if (!file) {
-      input.value = '';
-      return;
+  async function readMenuClipboard() {
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+        return await navigator.clipboard.readText();
+      }
+    } catch (error) {
+      // Fall back to a manual paste box when the browser denies clipboard access.
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      input.value = '';
-      showToast('文件太大，请选择不超过 2MB 的备份文件。', 'error');
+    return window.prompt('无法直接读取剪贴板，请把菜单粘贴到这里（每行一道菜）：', '');
+  }
+
+  async function pasteMenuFromClipboard() {
+    const text = await readMenuClipboard();
+    if (text === null) {
       return;
     }
 
     try {
-      const text = await file.text();
-      let payload;
-      try {
-        payload = JSON.parse(text);
-      } catch (error) {
-        throw new Error('无法解析该文件，请选择菜单备份 JSON 文件。');
-      }
-
-      const { dishes, skipped } = parseBackup(payload);
+      const { dishes, skipped } = parseClipboardMenu(text);
       if (state.dishes.length > 0) {
         const confirmed = window.confirm(
-          `导入将替换当前菜单中的 ${state.dishes.length} 道菜，是否继续？`,
+          `粘贴将替换当前菜单中的 ${state.dishes.length} 道菜，是否继续？`,
         );
         if (!confirmed) {
           return;
@@ -807,16 +837,14 @@
       const saved = saveDishes();
       render();
       elements.listScroll.scrollTop = 0;
-      const skippedMessage = skipped > 0 ? `，跳过 ${skipped} 条重复或无效数据` : '';
+      const skippedMessage = skipped > 0 ? `，跳过 ${skipped} 条重复或无效内容` : '';
       if (saved) {
-        showToast(`已导入 ${dishes.length} 道菜${skippedMessage}`);
+        showToast(`已粘贴 ${dishes.length} 道菜${skippedMessage}`);
       } else {
-        showToast('菜单已导入，但无法保存到本地存储。', 'error');
+        showToast('菜单已粘贴，但无法保存到本地存储。', 'error');
       }
     } catch (error) {
-      showToast(error.message || '导入失败，请检查备份文件。', 'error');
-    } finally {
-      input.value = '';
+      showToast(error.message || '粘贴失败，请检查剪贴板内容。', 'error');
     }
   }
 
@@ -836,9 +864,8 @@
     });
 
     elements.randomButton.addEventListener('click', startRandomPick);
-    elements.exportButton.addEventListener('click', exportMenu);
-    elements.importButton.addEventListener('click', () => elements.importFile.click());
-    elements.importFile.addEventListener('change', handleImportFile);
+    elements.copyButton.addEventListener('click', copyMenuToClipboard);
+    elements.pasteButton.addEventListener('click', pasteMenuFromClipboard);
 
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') {
