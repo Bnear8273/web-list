@@ -63,6 +63,7 @@
     selectionAnnouncement: $('#selectionAnnouncement'),
     listTabs: $('#listTabs'),
     addListButton: $('#addListButton'),
+    activeListName: $('#activeListName'),
     renameListButton: $('#renameListButton'),
     deleteListButton: $('#deleteListButton'),
     enableSummary: $('#enableSummary'),
@@ -442,6 +443,7 @@
     const name = list ? list.name : DEFAULT_LIST_NAME;
     elements.pickerListName.textContent = name;
     document.title = `${name} · 随机选择器`;
+    elements.activeListName.textContent = name;
     elements.renameListButton.disabled = !list;
     elements.deleteListButton.disabled = state.lists.length <= 1;
     elements.deleteListButton.title = state.lists.length <= 1
