@@ -51,6 +51,13 @@
     emptyState: $('#emptyState'),
     copyButton: $('#copyButton'),
     pasteButton: $('#pasteButton'),
+    pasteDialog: $('#pasteDialog'),
+    pasteDialogTitle: $('#pasteDialogTitle'),
+    pasteDialogDesc: $('#pasteDialogDesc'),
+    pastePreview: $('#pastePreview'),
+    pasteCancel: $('#pasteCancel'),
+    pasteReplace: $('#pasteReplace'),
+    pasteAppend: $('#pasteAppend'),
     toastRegion: $('#toastRegion'),
   };
 
@@ -64,6 +71,7 @@
     pickToken: 0,
     storageAvailable: true,
     loadMessage: '',
+    pendingPaste: null,
   };
 
   function createId() {
@@ -814,6 +822,32 @@
     return window.prompt('无法直接读取剪贴板，请把菜单粘贴到这里（每行一道菜）：', '');
   }
 
+  function askPasteMode(dishes) {
+    return new Promise((resolve) => {
+      state.pendingPaste = resolve;
+      const previewNames = dishes.slice(0, 8).map((dish) => dish.name);
+      const extraCount = dishes.length - previewNames.length;
+      elements.pasteDialogTitle.textContent = `导入 ${dishes.length} 道菜`;
+      elements.pasteDialogDesc.textContent = `当前菜单已有 ${state.dishes.length} 道菜。追加会保留现有菜品并自动去重，覆盖会替换全部菜品。`;
+      elements.pastePreview.textContent = `${previewNames.join('、')}${extraCount > 0 ? ` 等 ${dishes.length} 道` : ''}`;
+
+      if (!elements.pasteDialog.open) {
+        elements.pasteDialog.showModal();
+      }
+
+      window.requestAnimationFrame(() => elements.pasteAppend.focus());
+    });
+  }
+
+  function settlePasteDialog(mode) {
+    const resolve = state.pendingPaste;
+    state.pendingPaste = null;
+    if (elements.pasteDialog.open) {
+      elements.pasteDialog.close();
+    }
+    resolve?.(mode);
+  }
+
   async function pasteMenuFromClipboard() {
     const text = await readMenuClipboard();
     if (text === null) {
@@ -822,26 +856,38 @@
 
     try {
       const { dishes, skipped } = parseClipboardMenu(text);
+      let mode = 'replace';
       if (state.dishes.length > 0) {
-        const confirmed = window.confirm(
-          `粘贴将替换当前菜单中的 ${state.dishes.length} 道菜，是否继续？`,
-        );
-        if (!confirmed) {
+        mode = await askPasteMode(dishes);
+        if (!mode) {
           return;
         }
       }
 
-      state.dishes = dishes;
+      const existingNames = new Set(state.dishes.map((dish) => nameKey(dish.name)));
+      const appendedDishes = mode === 'append'
+        ? dishes.filter((dish) => !existingNames.has(nameKey(dish.name)))
+        : dishes;
+      const nextDishes = mode === 'append' ? [...state.dishes, ...appendedDishes] : dishes;
+      const existingDuplicates = mode === 'append' ? dishes.length - appendedDishes.length : 0;
+      const skippedTotal = skipped + existingDuplicates;
+
+      state.dishes = nextDishes;
       cancelRowStates();
       resetPicker();
       const saved = saveDishes();
       render();
       elements.listScroll.scrollTop = 0;
-      const skippedMessage = skipped > 0 ? `，跳过 ${skipped} 条重复或无效内容` : '';
-      if (saved) {
-        showToast(`已粘贴 ${dishes.length} 道菜${skippedMessage}`);
+      const skippedMessage = skippedTotal > 0 ? `，跳过 ${skippedTotal} 条重复或无效内容` : '';
+
+      if (!saved) {
+        showToast('菜单已更新，但无法保存到本地存储。', 'error');
+      } else if (mode === 'append' && appendedDishes.length === 0) {
+        showToast('没有新增菜品，粘贴内容都已存在。');
+      } else if (mode === 'append') {
+        showToast(`已追加 ${appendedDishes.length} 道菜${skippedMessage}`);
       } else {
-        showToast('菜单已粘贴，但无法保存到本地存储。', 'error');
+        showToast(`已覆盖菜单，共 ${dishes.length} 道菜${skippedMessage}`);
       }
     } catch (error) {
       showToast(error.message || '粘贴失败，请检查剪贴板内容。', 'error');
@@ -866,6 +912,22 @@
     elements.randomButton.addEventListener('click', startRandomPick);
     elements.copyButton.addEventListener('click', copyMenuToClipboard);
     elements.pasteButton.addEventListener('click', pasteMenuFromClipboard);
+
+    elements.pasteCancel.addEventListener('click', () => settlePasteDialog(null));
+    elements.pasteReplace.addEventListener('click', () => settlePasteDialog('replace'));
+    elements.pasteAppend.addEventListener('click', () => settlePasteDialog('append'));
+    elements.pasteDialog.addEventListener('click', (event) => {
+      if (event.target === elements.pasteDialog) {
+        settlePasteDialog(null);
+      }
+    });
+    elements.pasteDialog.addEventListener('close', () => {
+      if (state.pendingPaste) {
+        const resolve = state.pendingPaste;
+        state.pendingPaste = null;
+        resolve(null);
+      }
+    });
 
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') {

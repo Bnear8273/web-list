@@ -1023,6 +1023,147 @@ p {
   background: transparent;
 }
 
+/* Paste mode dialog */
+.paste-dialog {
+  width: min(460px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  margin: auto;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+
+.paste-dialog::backdrop {
+  background: rgba(27, 37, 30, 0.48);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.paste-dialog[open] {
+  animation: dialog-fade-in 200ms ease;
+}
+
+.paste-dialog[open] .paste-dialog-card {
+  animation: dialog-rise 280ms var(--ease);
+}
+
+@keyframes dialog-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+}
+
+.paste-dialog-card {
+  max-height: calc(100vh - 32px);
+  padding: 28px;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(237, 242, 233, 0.9), transparent 18rem),
+    var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 22px;
+  box-shadow: 0 28px 70px rgba(35, 28, 19, 0.24);
+}
+
+.dialog-kicker {
+  color: var(--terracotta);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.paste-dialog h2 {
+  margin-top: 5px;
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.paste-dialog-desc {
+  margin-top: 9px;
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+.paste-preview {
+  margin-top: 14px;
+  padding: 11px 13px;
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+  padding-top: 17px;
+  border-top: 1px solid var(--line);
+}
+
+.dialog-button {
+  min-height: 39px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.dialog-button.is-ghost {
+  margin-right: auto;
+  color: var(--ink-muted);
+  background: transparent;
+  border-color: var(--line);
+}
+
+.dialog-button.is-ghost:hover {
+  color: var(--ink);
+  background: var(--surface-soft);
+  border-color: var(--line-strong);
+}
+
+.dialog-button.is-replace {
+  color: var(--danger);
+  background: transparent;
+  border-color: rgba(180, 81, 58, 0.22);
+}
+
+.dialog-button.is-replace:hover {
+  background: rgba(180, 81, 58, 0.07);
+  border-color: rgba(180, 81, 58, 0.35);
+}
+
+.dialog-button.is-append {
+  color: var(--cream);
+  background: var(--green);
+  border-color: var(--green);
+}
+
+.dialog-button.is-append:hover {
+  background: var(--green-light);
+  border-color: var(--green-light);
+}
+
 /* Toast */
 .toast-region {
   position: fixed;
@@ -1305,6 +1446,31 @@ p {
   .toast-region {
     right: 16px;
     bottom: 16px;
+  }
+
+  .paste-dialog-card {
+    padding: 22px 18px 16px;
+    border-radius: 18px;
+  }
+
+  .paste-dialog h2 {
+    font-size: 22px;
+  }
+
+  .dialog-actions {
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .dialog-button {
+    flex: 1 1 calc(50% - 4px);
+    padding: 0 10px;
+  }
+
+  .dialog-button.is-ghost {
+    order: 3;
+    flex-basis: 100%;
+    margin-right: 0;
   }
 }
 

@@ -9,8 +9,8 @@
   <title>今天吃什么 · 我的小菜单</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <!-- 更新 app.js 或 styles.css 后同步递增版本号，避免浏览器混用旧缓存。 -->
-  <link rel="stylesheet" href="./styles.css?v=20261116-3">
-  <script src="./app.js?v=20261116-3" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=20261116-4">
+  <script src="./app.js?v=20261116-4" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -154,6 +154,20 @@
       <p>清除浏览器站点数据会删除菜单内容</p>
     </footer>
   </div>
+
+  <dialog class="paste-dialog" id="pasteDialog" aria-labelledby="pasteDialogTitle" aria-describedby="pasteDialogDesc">
+    <div class="paste-dialog-card">
+      <p class="dialog-kicker">PASTE MENU</p>
+      <h2 id="pasteDialogTitle">如何导入菜品？</h2>
+      <p class="paste-dialog-desc" id="pasteDialogDesc"></p>
+      <p class="paste-preview" id="pastePreview"></p>
+      <div class="dialog-actions">
+        <button type="button" class="dialog-button is-ghost" id="pasteCancel">取消</button>
+        <button type="button" class="dialog-button is-replace" id="pasteReplace">覆盖菜单</button>
+        <button type="button" class="dialog-button is-append" id="pasteAppend">追加并去重</button>
+      </div>
+    </div>
+  </dialog>
 
   <div class="toast-region" id="toastRegion" aria-live="polite"></div>
 </body>
