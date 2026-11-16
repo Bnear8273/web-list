@@ -3,7 +3,6 @@
 
   const STORAGE_KEY = 'what-to-eat.dishes.v1';
   const MAX_NAME_LENGTH = 24;
-  const SAMPLE_NAMES = ['番茄炒蛋', '青椒肉丝', '麻婆豆腐', '可乐鸡翅', '蒜蓉西兰花', '蛋炒饭'];
   const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 
   const ICONS = {
@@ -44,14 +43,16 @@
     stageName: $('#stageName'),
     selectionAnnouncement: $('#selectionAnnouncement'),
     dishCount: $('#dishCount'),
-    menuSummary: $('#menuSummary'),
     addForm: $('#addForm'),
     dishInput: $('#dishInput'),
     formMessage: $('#formMessage'),
     dishList: $('#dishList'),
     listScroll: $('#listScroll'),
     emptyState: $('#emptyState'),
-    sampleButton: $('#sampleButton'),
+    exportButton: $('#exportButton'),
+    importButton: $('#importButton'),
+    importFile: $('#importFile'),
+    toastRegion: $('#toastRegion'),
   };
 
   const state = {
@@ -61,6 +62,7 @@
     lastPickedId: null,
     rolling: false,
     rollTimer: null,
+    pickToken: 0,
     storageAvailable: true,
     loadMessage: '',
   };
@@ -178,6 +180,22 @@
     elements.formMessage.hidden = !message;
   }
 
+  function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast${type === 'error' ? ' is-error' : ''}`;
+    toast.textContent = message;
+    elements.toastRegion.append(toast);
+
+    while (elements.toastRegion.children.length > 3) {
+      elements.toastRegion.firstElementChild.remove();
+    }
+
+    window.setTimeout(() => {
+      toast.classList.add('is-leaving');
+      window.setTimeout(() => toast.remove(), 240);
+    }, 3000);
+  }
+
   function clearFormMessage() {
     elements.formMessage.textContent = '';
     elements.formMessage.hidden = true;
@@ -253,7 +271,7 @@
   function updateCounts() {
     const count = state.dishes.length;
     elements.dishCount.textContent = `${count} 道菜`;
-    elements.menuSummary.textContent = `共 ${count} 道菜`;
+    elements.exportButton.disabled = count === 0;
     elements.emptyState.hidden = count > 0;
     elements.dishList.hidden = count === 0;
   }
@@ -350,6 +368,7 @@
   }
 
   function resetPicker() {
+    state.pickToken += 1;
     if (state.rollTimer) {
       window.clearInterval(state.rollTimer);
       state.rollTimer = null;
@@ -389,7 +408,10 @@
     return candidates[randomIndex(candidates.length)];
   }
 
-  function finishRandomPick() {
+  function finishRandomPick(token) {
+    if (token !== state.pickToken) {
+      return;
+    }
     if (state.rollTimer) {
       window.clearInterval(state.rollTimer);
       state.rollTimer = null;
@@ -447,6 +469,8 @@
     }
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const token = state.pickToken + 1;
+    state.pickToken = token;
     state.rolling = true;
     elements.resultStage.classList.remove('is-revealed');
     elements.resultStage.classList.add('is-rolling');
@@ -468,13 +492,13 @@
     };
 
     if (reduceMotion) {
-      window.setTimeout(finishRandomPick, 0);
+      window.setTimeout(() => finishRandomPick(token), 0);
       return;
     }
 
     showRollingDish();
     state.rollTimer = window.setInterval(showRollingDish, 70);
-    window.setTimeout(finishRandomPick, 850);
+    window.setTimeout(() => finishRandomPick(token), 850);
   }
 
   function cancelRowStates() {
@@ -667,21 +691,133 @@
     }
   }
 
-  function loadSampleMenu() {
-    if (state.dishes.length > 0) {
+  function exportMenu() {
+    if (!state.dishes.length) {
       return;
     }
-    const now = Date.now();
-    state.dishes = SAMPLE_NAMES.map((name, index) => ({
-      id: createId(),
-      name,
-      createdAt: now + index,
-    }));
-    cancelRowStates();
-    resetPicker();
-    saveDishes();
-    render();
-    elements.dishInput.focus();
+
+    const payload = {
+      app: '今天吃什么',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      dishes: state.dishes.map((dish) => dish.name),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date();
+    const stamp = [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+
+    link.href = url;
+    link.download = `今天吃什么-菜单备份-${stamp}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(`已导出 ${state.dishes.length} 道菜`);
+  }
+
+  function parseBackup(payload) {
+    const rawDishes = Array.isArray(payload)
+      ? payload
+      : payload && typeof payload === 'object' && Array.isArray(payload.dishes)
+        ? payload.dishes
+        : null;
+
+    if (!rawDishes) {
+      throw new Error('文件格式不正确，找不到菜品数据。');
+    }
+    if (rawDishes.length === 0) {
+      throw new Error('备份文件中没有菜品。');
+    }
+
+    const dishes = [];
+    const usedNames = new Set();
+
+    rawDishes.forEach((entry) => {
+      const raw = typeof entry === 'string' ? { name: entry } : entry;
+      const dish = normalizeDish(raw);
+      if (!dish) {
+        return;
+      }
+      const key = nameKey(dish.name);
+      if (usedNames.has(key)) {
+        return;
+      }
+      usedNames.add(key);
+      dishes.push({
+        id: createId(),
+        name: dish.name,
+        createdAt: dish.createdAt,
+      });
+    });
+
+    if (dishes.length === 0) {
+      throw new Error('备份文件中没有有效的菜品。');
+    }
+
+    return {
+      dishes,
+      skipped: rawDishes.length - dishes.length,
+    };
+  }
+
+  async function handleImportFile(event) {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) {
+      input.value = '';
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      input.value = '';
+      showToast('文件太大，请选择不超过 2MB 的备份文件。', 'error');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      let payload;
+      try {
+        payload = JSON.parse(text);
+      } catch (error) {
+        throw new Error('无法解析该文件，请选择菜单备份 JSON 文件。');
+      }
+
+      const { dishes, skipped } = parseBackup(payload);
+      if (state.dishes.length > 0) {
+        const confirmed = window.confirm(
+          `导入将替换当前菜单中的 ${state.dishes.length} 道菜，是否继续？`,
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      state.dishes = dishes;
+      cancelRowStates();
+      resetPicker();
+      const saved = saveDishes();
+      render();
+      elements.listScroll.scrollTop = 0;
+      const skippedMessage = skipped > 0 ? `，跳过 ${skipped} 条重复或无效数据` : '';
+      if (saved) {
+        showToast(`已导入 ${dishes.length} 道菜${skippedMessage}`);
+      } else {
+        showToast('菜单已导入，但无法保存到本地存储。', 'error');
+      }
+    } catch (error) {
+      showToast(error.message || '导入失败，请检查备份文件。', 'error');
+    } finally {
+      input.value = '';
+    }
   }
 
   function bindEvents() {
@@ -700,7 +836,9 @@
     });
 
     elements.randomButton.addEventListener('click', startRandomPick);
-    elements.sampleButton.addEventListener('click', loadSampleMenu);
+    elements.exportButton.addEventListener('click', exportMenu);
+    elements.importButton.addEventListener('click', () => elements.importFile.click());
+    elements.importFile.addEventListener('change', handleImportFile);
 
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') {

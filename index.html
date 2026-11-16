@@ -117,7 +117,6 @@
             </span>
             <p class="empty-title">菜单还是空的</p>
             <p class="empty-desc">把想吃的菜加进来，<br>下次纠结时就有答案了。</p>
-            <button type="button" class="sample-button" id="sampleButton">载入示例菜单</button>
           </div>
         </div>
 
@@ -129,7 +128,21 @@
             </svg>
             仅保存在此浏览器
           </span>
-          <span id="menuSummary">共 0 道菜</span>
+          <div class="data-actions" aria-label="菜单备份">
+            <button type="button" class="data-action" id="exportButton" title="将当前菜单导出为 JSON 备份" disabled>
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 4v11m0 0 4-4m-4 4-4-4M5 18.5h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              导出
+            </button>
+            <button type="button" class="data-action" id="importButton" title="从 JSON 备份导入菜单">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 15V4m0 0 4 4m-4-4L8 8M5 18.5h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              导入
+            </button>
+            <input type="file" id="importFile" accept=".json,application/json" hidden>
+          </div>
         </div>
       </section>
     </main>
@@ -139,5 +152,7 @@
       <p>清除浏览器站点数据会删除菜单内容</p>
     </footer>
   </div>
+
+  <div class="toast-region" id="toastRegion" aria-live="polite"></div>
 </body>
 </html>
