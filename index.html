@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4efe4">
   <meta name="color-scheme" content="light">
-  <meta name="description" content="今天吃什么：一个简单的本地菜单工具，添加常吃的菜，纠结时随机抽一道。">
-  <title>今天吃什么 · 我的小菜单</title>
+  <meta name="description" content="一个简单的本地随机选择器：添加候选项，纠结时随机选一个。">
+  <title>随机选择器 · 我的小清单</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <!-- 更新 app.js 或 styles.css 后同步递增版本号，避免浏览器混用旧缓存。 -->
-  <link rel="stylesheet" href="./styles.css?v=20261116-4">
-  <script src="./app.js?v=20261116-4" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=20261116-5">
+  <script src="./app.js?v=20261116-5" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
@@ -20,14 +20,12 @@
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 40 40" fill="none">
-            <path d="M8 20h24c0 7.18-5.82 13-13 13S8 27.18 8 20Z" fill="currentColor"/>
-            <path d="M14 14.5c0-2.5 2-3.5 2-6M21 14.5c0-2.5 2-3.5 2-6M28 14.5c0-2.5 2-3.5 2-6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M20 33v4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M8 13h3.6c6.7 0 9.7 14 16.4 14H32M32 27l-4-4m4 4-4 4M8 27h3.6c2.6 0 4.8-1.3 6.6-3.8M22.2 16.8c1.9-2.5 4-3.8 6.4-3.8H32M32 13l-4-4m4 4-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </span>
         <span class="brand-copy">
-          <span class="brand-title">今天吃什么</span>
-          <span class="brand-sub">MY LITTLE MENU</span>
+          <span class="brand-title">随机选择器</span>
+          <span class="brand-sub">RANDOM PICKER</span>
         </span>
       </div>
 
@@ -44,21 +42,21 @@
         <span class="picker-spark picker-spark-two" aria-hidden="true">✧</span>
 
         <div class="picker-top">
-          <p class="eyebrow eyebrow-light">DAILY PICK</p>
+          <p class="eyebrow eyebrow-light">RANDOM PICK</p>
           <time class="today-label" id="todayLabel"></time>
         </div>
 
         <div class="picker-intro">
-          <h1 id="pageTitle">不知道<br>吃什么？</h1>
-          <p>把常吃的菜放进菜单，<br class="desktop-break">纠结的时候，交给运气。</p>
+          <h1 id="pageTitle">不知道<br>选哪个？</h1>
+          <p>把候选项放进清单，<br class="desktop-break">纠结的时候，交给运气。</p>
         </div>
 
         <div class="result-stage" id="resultStage">
           <span class="stage-orbit" aria-hidden="true"></span>
           <span class="stage-dot" aria-hidden="true"></span>
-          <p class="stage-label" id="stageLabel">今日之选</p>
+          <p class="stage-label" id="stageLabel">随机选择</p>
           <div class="stage-name-wrap">
-            <p class="stage-placeholder" id="stagePlaceholder">点一下按钮<br>随机选一道</p>
+            <p class="stage-placeholder" id="stagePlaceholder">点一下按钮<br>随机选一个</p>
             <p class="stage-name" id="stageName" hidden></p>
           </div>
         </div>
@@ -68,9 +66,9 @@
             <svg class="shuffle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M4 7h2.2c4.8 0 6.6 10 11.6 10H20M20 17l-2.6-2.6M20 17l-2.6 2.6M4 17h2.2c1.3 0 2.5-.7 3.6-1.8M14 8.8C15 7.7 16.1 7 17.8 7H20M20 7l-2.6-2.6M20 7l-2.6 2.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-            <span id="randomButtonText">帮我选一道</span>
+            <span id="randomButtonText">帮我选一个</span>
           </button>
-          <p class="random-hint" id="randomHint">先添加几道菜，再来抽选</p>
+          <p class="random-hint" id="randomHint">先添加几个选项，再来抽选</p>
         </div>
 
         <p class="sr-only" id="selectionAnnouncement" aria-live="polite"></p>
@@ -79,20 +77,20 @@
       <section class="menu-card" aria-labelledby="menuTitle">
         <div class="menu-head">
           <div>
-            <p class="eyebrow">MY MENU</p>
-            <h2 id="menuTitle">我的菜单</h2>
+            <p class="eyebrow">MY LIST</p>
+            <h2 id="menuTitle">我的清单</h2>
           </div>
-          <span class="dish-count" id="dishCount">0 道菜</span>
+          <span class="dish-count" id="dishCount">0 个选项</span>
         </div>
 
         <form class="add-form" id="addForm" novalidate>
-          <label class="sr-only" for="dishInput">添加菜名</label>
+          <label class="sr-only" for="dishInput">添加选项名称</label>
           <input
             id="dishInput"
-            name="dish"
+            name="item"
             type="text"
             maxlength="24"
-            placeholder="添加一道菜，比如：番茄炒蛋"
+            placeholder="添加一个选项…"
             autocomplete="off"
             spellcheck="false"
             required
@@ -107,17 +105,18 @@
         <p class="form-message" id="formMessage" role="alert" hidden></p>
 
         <div class="list-scroll" id="listScroll">
-          <ul class="dish-list" id="dishList" aria-label="菜单列表"></ul>
+          <ul class="dish-list" id="dishList" aria-label="选项列表"></ul>
           <div class="empty-state" id="emptyState">
             <span class="empty-art" aria-hidden="true">
               <svg viewBox="0 0 64 64" fill="none">
-                <path d="M12 30h40c0 11.6-8.95 21-20 21s-20-9.4-20-21Z" fill="currentColor" opacity=".12"/>
-                <path d="M12 30h40c0 11.6-8.95 21-20 21s-20-9.4-20-21Z" stroke="currentColor" stroke-width="2"/>
-                <path d="M22 20c0-4 3-5.2 3-9M32 20c0-4 3-5.2 3-9M42 20c0-4 3-5.2 3-9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <rect x="15" y="12" width="34" height="40" rx="8" stroke="currentColor" stroke-width="2"/>
+                <path d="M24 24h16M24 32h10M24 40h7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+                <circle cx="43" cy="44" r="10" fill="currentColor" opacity=".1"/>
+                <path d="M39 44h8M43 40v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
               </svg>
             </span>
-            <p class="empty-title">菜单还是空的</p>
-            <p class="empty-desc">把想吃的菜加进来，<br>下次纠结时就有答案了。</p>
+            <p class="empty-title">清单还是空的</p>
+            <p class="empty-desc">把候选项加进来，<br>下次纠结时就有答案了。</p>
           </div>
         </div>
 
@@ -130,14 +129,14 @@
             仅保存在此浏览器
           </span>
           <div class="data-actions" aria-label="剪贴板备份">
-            <button type="button" class="data-action" id="copyButton" title="复制菜单到剪贴板" disabled>
+            <button type="button" class="data-action" id="copyButton" title="复制清单到剪贴板" disabled>
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <rect x="8.5" y="8.5" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/>
                 <path d="M15.5 8.5V7a2 2 0 0 0-2-2h-6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h1.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
               </svg>
               复制
             </button>
-            <button type="button" class="data-action" id="pasteButton" title="从剪贴板粘贴菜单">
+            <button type="button" class="data-action" id="pasteButton" title="从剪贴板粘贴清单">
               <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <rect x="6" y="5.5" width="12" height="14" rx="2" stroke="currentColor" stroke-width="1.7"/>
                 <path d="M9.5 5.5V4.5h5v1M9.5 10h5M9.5 13.5h3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
@@ -150,20 +149,20 @@
     </main>
 
     <footer class="site-footer">
-      <p>今天吃什么 · 只属于你的小菜单</p>
-      <p>清除浏览器站点数据会删除菜单内容</p>
+      <p>随机选择器 · 只属于你的小清单</p>
+      <p>清除浏览器站点数据会删除清单内容</p>
     </footer>
   </div>
 
   <dialog class="paste-dialog" id="pasteDialog" aria-labelledby="pasteDialogTitle" aria-describedby="pasteDialogDesc">
     <div class="paste-dialog-card">
-      <p class="dialog-kicker">PASTE MENU</p>
-      <h2 id="pasteDialogTitle">如何导入菜品？</h2>
+      <p class="dialog-kicker">PASTE LIST</p>
+      <h2 id="pasteDialogTitle">如何导入选项？</h2>
       <p class="paste-dialog-desc" id="pasteDialogDesc"></p>
       <p class="paste-preview" id="pastePreview"></p>
       <div class="dialog-actions">
         <button type="button" class="dialog-button is-ghost" id="pasteCancel">取消</button>
-        <button type="button" class="dialog-button is-replace" id="pasteReplace">覆盖菜单</button>
+        <button type="button" class="dialog-button is-replace" id="pasteReplace">覆盖清单</button>
         <button type="button" class="dialog-button is-append" id="pasteAppend">追加并去重</button>
       </div>
     </div>

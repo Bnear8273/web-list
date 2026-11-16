@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'what-to-eat.dishes.v1';
+  const STORAGE_KEY = 'random-picker.items.v1';
+  const LEGACY_STORAGE_KEY = 'what-to-eat.dishes.v1';
   const MAX_NAME_LENGTH = 24;
   const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 
@@ -138,9 +139,16 @@
     let raw;
     try {
       raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw === null) {
+        const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacyRaw !== null) {
+          raw = legacyRaw;
+          window.localStorage.setItem(STORAGE_KEY, legacyRaw);
+        }
+      }
     } catch (error) {
       state.storageAvailable = false;
-      state.loadMessage = '浏览器禁用了本地存储，菜单改动将无法保存。';
+      state.loadMessage = '浏览器禁用了本地存储，清单改动将无法保存。';
       return [];
     }
 
@@ -149,7 +157,7 @@
         window.localStorage.setItem(STORAGE_KEY, '[]');
       } catch (error) {
         state.storageAvailable = false;
-        state.loadMessage = '浏览器禁用了本地存储，菜单改动将无法保存。';
+        state.loadMessage = '浏览器禁用了本地存储，清单改动将无法保存。';
       }
       return [];
     }
@@ -157,7 +165,7 @@
     try {
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) {
-        throw new Error('Invalid menu data');
+        throw new Error('Invalid list data');
       }
 
       const usedIds = new Set();
@@ -172,7 +180,7 @@
           return dish;
         });
     } catch (error) {
-      state.loadMessage = '本地菜单读取失败，已从空菜单开始。';
+      state.loadMessage = '本地清单读取失败，已从空清单开始。';
       return [];
     }
   }
@@ -254,12 +262,12 @@
   function randomButtonHint() {
     const count = state.dishes.length;
     if (count === 0) {
-      return '先添加几道菜，再来抽选';
+      return '先添加几个选项，再来抽选';
     }
     if (count === 1) {
-      return state.lastPickedId ? '菜单里只有这一道，就是它啦' : '菜单里只有这一道，抽到就是它';
+      return state.lastPickedId ? '清单里只有一个选项，就是它啦' : '清单里只有一个选项，抽到就是它';
     }
-    return state.lastPickedId ? '不满意？再抽一次，不会连续重复' : `菜单里有 ${count} 道菜，交给运气决定`;
+    return state.lastPickedId ? '不满意？再抽一次，不会连续重复' : `清单里有 ${count} 个选项，交给运气决定`;
   }
 
   function updateRandomAvailability() {
@@ -268,8 +276,8 @@
     elements.randomButtonText.textContent = state.rolling
       ? '正在挑选…'
       : state.lastPickedId
-        ? '换一道'
-        : '帮我选一道';
+        ? '换一个'
+        : '帮我选一个';
     if (!state.rolling) {
       elements.randomHint.textContent = randomButtonHint();
     }
@@ -277,7 +285,7 @@
 
   function updateCounts() {
     const count = state.dishes.length;
-    elements.dishCount.textContent = `${count} 道菜`;
+    elements.dishCount.textContent = `${count} 个选项`;
     elements.copyButton.disabled = count === 0;
     elements.emptyState.hidden = count > 0;
     elements.dishList.hidden = count === 0;
@@ -292,7 +300,7 @@
         <li class="dish-row is-editing" data-id="${escapeHTML(dish.id)}">
           <span class="row-number" aria-hidden="true">${rowNumber}</span>
           <form class="edit-form" data-edit-form data-id="${escapeHTML(dish.id)}" novalidate>
-            <label class="sr-only" for="edit-${escapeHTML(dish.id)}">修改「${escapeHTML(dish.name)}」的菜名</label>
+            <label class="sr-only" for="edit-${escapeHTML(dish.id)}">修改「${escapeHTML(dish.name)}」的名称</label>
             <input
               class="edit-input"
               id="edit-${escapeHTML(dish.id)}"
@@ -386,7 +394,7 @@
     elements.stageName.hidden = true;
     elements.stageName.textContent = '';
     elements.stageName.classList.remove('is-long');
-    elements.stageLabel.textContent = '今日之选';
+    elements.stageLabel.textContent = '随机选择';
     elements.resultStage.classList.remove('is-rolling', 'is-revealed');
     elements.randomButton.classList.remove('is-picking');
     elements.selectionAnnouncement.textContent = '';
@@ -441,10 +449,10 @@
     state.lastPickedId = picked.id;
     elements.resultStage.classList.remove('is-rolling');
     elements.resultStage.classList.add('is-revealed');
-    elements.stageLabel.textContent = '今天就吃';
+    elements.stageLabel.textContent = '就选这个';
     setStageName(picked.name);
     elements.randomButton.classList.remove('is-picking');
-    elements.selectionAnnouncement.textContent = `今天就吃${picked.name}`;
+    elements.selectionAnnouncement.textContent = `就选这个：${picked.name}`;
     updateRandomAvailability();
     renderList({ manageFocus: false });
     scrollPickedRowIntoView(picked.id);
@@ -518,17 +526,17 @@
     const name = cleanName(elements.dishInput.value);
 
     if (!name) {
-      markAddInputInvalid('先写下一道菜名吧。');
+      markAddInputInvalid('先写下一个选项名称吧。');
       return;
     }
 
     if ([...name].length > MAX_NAME_LENGTH) {
-      markAddInputInvalid(`菜名不能超过 ${MAX_NAME_LENGTH} 个字。`);
+      markAddInputInvalid(`选项名称不能超过 ${MAX_NAME_LENGTH} 个字。`);
       return;
     }
 
     if (state.dishes.some((dish) => nameKey(dish.name) === nameKey(name))) {
-      markAddInputInvalid(`「${name}」已经在菜单里啦。`);
+      markAddInputInvalid(`「${name}」已经在清单里啦。`);
       return;
     }
 
@@ -583,19 +591,19 @@
 
     const name = cleanName(input.value);
     if (!name) {
-      input.setCustomValidity('菜名不能为空。');
+      input.setCustomValidity('选项名称不能为空。');
       input.reportValidity();
       input.focus();
       return;
     }
     if ([...name].length > MAX_NAME_LENGTH) {
-      input.setCustomValidity(`菜名不能超过 ${MAX_NAME_LENGTH} 个字。`);
+      input.setCustomValidity(`选项名称不能超过 ${MAX_NAME_LENGTH} 个字。`);
       input.reportValidity();
       input.focus();
       return;
     }
     if (state.dishes.some((item) => item.id !== id && nameKey(item.name) === nameKey(name))) {
-      input.setCustomValidity('菜单里已经有同名的菜了。');
+      input.setCustomValidity('清单里已经有同名的选项了。');
       input.reportValidity();
       input.focus();
       return;
@@ -741,7 +749,7 @@
     }
 
     if (copied) {
-      showToast(`已复制 ${state.dishes.length} 道菜`);
+      showToast(`已复制 ${state.dishes.length} 个选项`);
     } else {
       showToast('复制失败，请允许浏览器访问剪贴板后重试。', 'error');
     }
@@ -750,7 +758,7 @@
   function parseClipboardMenu(text) {
     const content = String(text ?? '').trim();
     if (!content) {
-      throw new Error('剪贴板里没有菜单内容。');
+      throw new Error('剪贴板里没有内容。');
     }
 
     let rawDishes;
@@ -767,7 +775,7 @@
           ? payload.dishes
           : null;
       if (!rawDishes) {
-        throw new Error('没有找到可导入的菜品数据。');
+        throw new Error('没有找到可导入的选项数据。');
       }
     } else {
       rawDishes = content.split(/\r?\n/);
@@ -801,7 +809,7 @@
     });
 
     if (dishes.length === 0) {
-      throw new Error('没有找到有效的菜名。');
+      throw new Error('没有找到有效的选项名称。');
     }
 
     return {
@@ -819,7 +827,7 @@
       // Fall back to a manual paste box when the browser denies clipboard access.
     }
 
-    return window.prompt('无法直接读取剪贴板，请把菜单粘贴到这里（每行一道菜）：', '');
+    return window.prompt('无法直接读取剪贴板，请把选项粘贴到这里（每行一个）：', '');
   }
 
   function askPasteMode(dishes) {
@@ -827,9 +835,9 @@
       state.pendingPaste = resolve;
       const previewNames = dishes.slice(0, 8).map((dish) => dish.name);
       const extraCount = dishes.length - previewNames.length;
-      elements.pasteDialogTitle.textContent = `导入 ${dishes.length} 道菜`;
-      elements.pasteDialogDesc.textContent = `当前菜单已有 ${state.dishes.length} 道菜。追加会保留现有菜品并自动去重，覆盖会替换全部菜品。`;
-      elements.pastePreview.textContent = `${previewNames.join('、')}${extraCount > 0 ? ` 等 ${dishes.length} 道` : ''}`;
+      elements.pasteDialogTitle.textContent = `导入 ${dishes.length} 个选项`;
+      elements.pasteDialogDesc.textContent = `当前清单已有 ${state.dishes.length} 个选项。追加会保留现有选项并自动去重，覆盖会替换全部选项。`;
+      elements.pastePreview.textContent = `${previewNames.join('、')}${extraCount > 0 ? ` 等 ${dishes.length} 个` : ''}`;
 
       if (!elements.pasteDialog.open) {
         elements.pasteDialog.showModal();
@@ -881,13 +889,13 @@
       const skippedMessage = skippedTotal > 0 ? `，跳过 ${skippedTotal} 条重复或无效内容` : '';
 
       if (!saved) {
-        showToast('菜单已更新，但无法保存到本地存储。', 'error');
+        showToast('清单已更新，但无法保存到本地存储。', 'error');
       } else if (mode === 'append' && appendedDishes.length === 0) {
-        showToast('没有新增菜品，粘贴内容都已存在。');
+        showToast('没有新增选项，粘贴内容都已存在。');
       } else if (mode === 'append') {
-        showToast(`已追加 ${appendedDishes.length} 道菜${skippedMessage}`);
+        showToast(`已追加 ${appendedDishes.length} 个选项${skippedMessage}`);
       } else {
-        showToast(`已覆盖菜单，共 ${dishes.length} 道菜${skippedMessage}`);
+        showToast(`已覆盖清单，共 ${dishes.length} 个选项${skippedMessage}`);
       }
     } catch (error) {
       showToast(error.message || '粘贴失败，请检查剪贴板内容。', 'error');
