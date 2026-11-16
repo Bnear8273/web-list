@@ -730,24 +730,12 @@ p {
 .list-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   margin-top: 8px;
   color: var(--ink-muted);
   font-size: 10px;
   line-height: 1.5;
-}
-
-.list-meta-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.list-meta-label strong {
-  color: var(--ink-soft);
-  font-weight: 600;
 }
 
 .list-meta-actions {
@@ -758,9 +746,37 @@ p {
 }
 
 .list-meta .text-action {
-  min-height: 32px;
-  padding: 0 9px;
-  font-size: 11px;
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.list-meta .text-action:hover {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+
+.list-meta .text-action.is-danger {
+  color: var(--danger);
+  background: rgba(180, 81, 58, 0.05);
+  border-color: rgba(180, 81, 58, 0.18);
+}
+
+.list-meta .text-action.is-danger:hover {
+  color: var(--danger);
+  background: rgba(180, 81, 58, 0.09);
+  border-color: rgba(180, 81, 58, 0.3);
+}
+
+.list-meta .text-action:disabled:hover {
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+  border-color: var(--line);
 }
 
 .list-tools {
@@ -794,9 +810,25 @@ p {
 }
 
 .list-tools .text-action {
-  min-height: 32px;
-  padding: 0 9px;
-  font-size: 11px;
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.list-tools .text-action:hover {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line-strong);
+}
+
+.list-tools .text-action:disabled:hover {
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+  border-color: var(--line);
 }
 
 .add-form {
@@ -908,7 +940,7 @@ p {
 
 .dish-row {
   display: flex;
-  min-height: 58px;
+  min-height: 60px;
   align-items: center;
   gap: 10px;
   padding: 5px 7px 5px 11px;
@@ -1004,13 +1036,13 @@ p {
 
 .row-action {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   color: var(--ink-muted);
   background: transparent;
   border: 0;
-  border-radius: 9px;
+  border-radius: 10px;
   place-items: center;
   transition: color 150ms ease, background-color 150ms ease, transform 120ms ease;
 }
@@ -1020,8 +1052,8 @@ p {
 }
 
 .row-action svg {
-  width: 17px;
-  height: 17px;
+  width: 20px;
+  height: 20px;
 }
 
 .row-action:hover {
@@ -1093,11 +1125,11 @@ p {
 
 .mini-action {
   display: grid;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 0;
-  border-radius: 9px;
+  border-radius: 10px;
   place-items: center;
   transition: background-color 150ms ease, color 150ms ease, transform 120ms ease;
 }
@@ -1107,8 +1139,8 @@ p {
 }
 
 .mini-action svg {
-  width: 17px;
-  height: 17px;
+  width: 20px;
+  height: 20px;
 }
 
 .mini-action.is-save {
@@ -1157,13 +1189,13 @@ p {
 }
 
 .text-action {
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: 36px;
+  padding: 0 12px;
   color: var(--ink-muted);
   background: transparent;
   border: 0;
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: 9px;
+  font-size: 13px;
   transition: background-color 150ms ease, color 150ms ease;
 }
 
@@ -1265,22 +1297,22 @@ p {
 
 .data-action {
   display: inline-flex;
-  min-height: 32px;
+  min-height: 36px;
   align-items: center;
-  gap: 5px;
-  padding: 0 10px;
+  gap: 6px;
+  padding: 0 12px;
   color: var(--ink-soft);
   background: var(--surface-soft);
   border: 1px solid var(--line);
-  border-radius: 9px;
-  font-size: 11px;
+  border-radius: 10px;
+  font-size: 12px;
   line-height: 1;
   transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, opacity 150ms ease;
 }
 
 .data-action svg {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
 }
 
 .data-action:hover:not(:disabled) {
@@ -1721,19 +1753,19 @@ p {
   }
 
   .list-meta .text-action {
-    min-height: 36px;
-    padding: 0 9px;
-    font-size: 11px;
+    min-height: 38px;
+    padding: 0 11px;
+    font-size: 12px;
   }
 
   .list-tools {
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .list-tools .text-action {
-    min-height: 36px;
-    padding: 0 9px;
-    font-size: 11px;
+    min-height: 38px;
+    padding: 0 11px;
+    font-size: 12px;
   }
 
   .add-form {
@@ -1758,13 +1790,13 @@ p {
   }
 
   .dish-row {
-    min-height: 58px;
+    min-height: 62px;
     padding-left: 9px;
   }
 
   .row-actions {
     opacity: 0.8;
-    gap: 3px;
+    gap: 2px;
   }
 
   .dish-name {
@@ -1777,23 +1809,28 @@ p {
   }
 
   .row-action {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
   }
 
   .row-action svg {
-    width: 18px;
-    height: 18px;
+    width: 21px;
+    height: 21px;
   }
 
   .mini-action {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
+  }
+
+  .mini-action svg {
+    width: 20px;
+    height: 20px;
   }
 
   .text-action {
-    min-height: 36px;
-    font-size: 12px;
+    min-height: 40px;
+    font-size: 13px;
   }
 
   .edit-input {
@@ -1810,14 +1847,14 @@ p {
   }
 
   .data-action {
-    min-height: 36px;
-    padding: 0 10px;
-    font-size: 11px;
+    min-height: 40px;
+    padding: 0 12px;
+    font-size: 12px;
   }
 
   .data-action svg {
-    width: 14px;
-    height: 14px;
+    width: 15px;
+    height: 15px;
   }
 
   .list-name-field input {
@@ -1900,6 +1937,12 @@ p {
 
   .row-action {
     width: 38px;
+    height: 38px;
+  }
+
+  .row-action svg {
+    width: 20px;
+    height: 20px;
   }
 
   .menu-foot {
